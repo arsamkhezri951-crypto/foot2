@@ -444,13 +444,12 @@ const KITS: Kit[] = [
   { shirt1: '#3f86ff', shirt2: '#1250c8', sleeve: '#1250c8', shorts: '#0d3f9e', socks: '#2f6fe0' },
   { shirt1: '#ffffff', shirt2: '#dde3ef', sleeve: '#ff5fa2', shorts: '#333a4d', socks: '#f2f4f9' },
 ];
-const GK_KIT: Kit = {
-  shirt1: '#ffd84d',
-  shirt2: '#eda912',
-  sleeve: '#e09a08',
-  shorts: '#20242f',
-  socks: '#f2b705',
-};
+// distinct keeper kits so each goalmouth reads instantly:
+// blue team keeper = orange, white team keeper = yellow
+const GK_KITS: [Kit, Kit] = [
+  { shirt1: '#ff9838', shirt2: '#dd6410', sleeve: '#d95f0e', shorts: '#23262f', socks: '#ffb057' },
+  { shirt1: '#ffd84d', shirt2: '#eda912', sleeve: '#e09a08', shorts: '#20242f', socks: '#f2b705' },
+];
 
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
@@ -463,7 +462,7 @@ export function drawPlayer(
   const amp = Math.min(1, speed / 230);
   const s = Math.sin(p.runPhase);
   const faceR = Math.cos(p.dir) >= 0 ? 1 : -1;
-  const kit = p.gk ? GK_KIT : KITS[p.team];
+  const kit = p.gk ? GK_KITS[p.team] : KITS[p.team];
   const celebrating = p.celebrateT > 0;
   const jump = celebrating
     ? Math.abs(Math.sin(t * 11 + p.id)) * 13 * Math.min(1, p.celebrateT)

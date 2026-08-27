@@ -557,7 +557,7 @@ export default function App() {
             LEFT STICK TO MOVE — BUTTONS TO PLAY
           </div>
           <div className="mt-6 text-[10px] text-[#5c7099] tracking-[0.3em]">
-            3 MIN MATCH • BLUE 2 — 2 WHITE + KEEPER • ORIGINAL ARCADE GAME
+            3 MIN MATCH • 3V3 + KEEPERS IN BOTH GOALS • ORIGINAL ARCADE GAME
           </div>
         </div>
       )}

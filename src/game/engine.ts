@@ -316,7 +316,7 @@ export class Game implements GameView {
     }
     b.owner = p;
     b.freeT = 0;
-    if (p.team === 1 && p.gk) p.aiT = rand(0.7, 1.05);
+    if (p.gk) p.aiT = rand(0.7, 1.05); // keeper gathers, then distributes
   }
 
   private kick(
@@ -773,7 +773,8 @@ export class Game implements GameView {
   private autoSwitch() {
     this.switchT = 0.12;
     const b = this.ball;
-    if (b.owner && b.owner.team === 0) {
+    // keepers are never user-controlled — only the two blue field players
+    if (b.owner && b.owner.team === 0 && !b.owner.gk) {
       this.activeId = b.owner.id;
       return;
     }
@@ -933,7 +934,11 @@ export class Game implements GameView {
         gk.shotFaced = true;
         const speed = Math.hypot(b.vx, b.vy);
         const reach = Math.abs(gk.y - b.y) < 38 && b.z < 82;
-        const chance = clamp(0.82 - (speed - 300) / 1000, 0.2, 0.68);
+        // opponent keeper is beatable; the player's own keeper is reliable
+        const chance =
+          gk.team === 1
+            ? clamp(0.72 - (speed - 300) / 900, 0.14, 0.55)
+            : clamp(0.92 - (speed - 300) / 1000, 0.32, 0.8);
         if (reach && Math.random() < chance) {
           b.vx = dir * (Math.abs(b.vx) * 0.22 + 130);
           b.vy = (Math.random() < 0.5 ? -1 : 1) * rand(150, 270);
