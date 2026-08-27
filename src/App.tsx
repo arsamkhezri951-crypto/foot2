@@ -56,13 +56,7 @@ const CrossIcon = () => (
     <path d="M19.5 9.5L24 6l1.4 5.4" stroke="#baffd9" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-const DribbleIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-    <path d="M3 9c5 0 6 3 11 3M1 16h13M3 23c5 0 6-3 11-3" stroke="#ffd9a8" strokeWidth="2.6" strokeLinecap="round" />
-    <circle cx="23" cy="16" r="6.4" fill="#fff" />
-    <path d="M23 13.4l2.4 1.8-1 2.9h-2.9l-1-2.9 2.5-1.8z" fill="#171a22" />
-  </svg>
-);
+
 const PauseIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
     <rect x="3" y="2" width="4" height="12" rx="1.4" />
@@ -397,27 +391,6 @@ export default function App() {
             >
               <PassIcon />
               <span className="text-[9px] sm:text-[10px] text-white/95">PASS</span>
-            </button>
-            {/* DRIBBLE — middle diagonal */}
-            <button
-              className="hud-btn absolute"
-              style={{
-                right: '38%',
-                bottom: '6%',
-                width: 'clamp(52px, 9.5vmin, 70px)',
-                height: 'clamp(52px, 9.5vmin, 70px)',
-                background: 'radial-gradient(circle at 35% 28%, #ffc257, #e08810 78%)',
-                border: '2px solid rgba(255,230,180,0.7)',
-                boxShadow: '0 8px 20px rgba(90,45,0,0.5), inset 0 -8px 14px rgba(120,55,0,0.4)',
-              }}
-              onPointerDown={(e) => {
-                if (e.button > 0) return;
-                sfx.click();
-                g()?.dribble();
-              }}
-            >
-              <DribbleIcon />
-              <span className="text-[8px] sm:text-[9px] text-white/95">DRIBBLE</span>
             </button>
             {/* SHOOT — big, bottom right */}
             <button

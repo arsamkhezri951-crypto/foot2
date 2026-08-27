@@ -47,6 +47,7 @@ export interface PlayerT {
   hair: string;
   lungeT: number; // failed tackle lunge anim
   hasBallGlow: number;
+  shotFaced: boolean; // keeper: save decision already rolled for the current shot
 }
 
 export interface BallT {
@@ -93,12 +94,14 @@ export interface InputState {
   shoot: boolean; // held
 }
 
-export interface CameraT {
-  x: number;
-  y: number;
-  zoom: number; // multiplier over base scale
-  tZoom: number;
-  shake: number;
+/**
+ * FIXED full-pitch camera: a static transform that fits the entire world
+ * (pitch + stadium margins) inside the viewport. Never moves, never zooms.
+ */
+export interface ViewT {
+  scale: number; // world -> screen scale
+  ox: number; // screen-space offset of world origin
+  oy: number;
 }
 
 export interface StatsT {
@@ -115,7 +118,7 @@ export interface GameView {
   ball: BallT;
   particles: ParticleT[];
   trail: TrailDot[];
-  cam: CameraT;
+  view: ViewT;
   score: [number, number];
   timeLeft: number;
   activeId: number;

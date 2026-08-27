@@ -695,22 +695,26 @@ export function renderFrame(
   dpr: number,
   stadium: HTMLCanvasElement
 ) {
-  const base = Math.max(cw / 1150, ch / 760);
-  const scale = base * view.cam.zoom;
-  const shx = (Math.random() - 0.5) * view.cam.shake;
-  const shy = (Math.random() - 0.5) * view.cam.shake;
+  // ---- FIXED camera: one static fit-transform, identical every frame ----
+  const v = view.view;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#0a1222';
+
+  // deep night backdrop + ambient stadium glow bleeding into the letterbox
+  ctx.fillStyle = '#04070d';
   ctx.fillRect(0, 0, cw * dpr, ch * dpr);
-  ctx.setTransform(
-    dpr * scale,
-    0,
-    0,
-    dpr * scale,
-    dpr * (cw / 2 - view.cam.x * scale + shx),
-    dpr * (ch / 2 - view.cam.y * scale + shy)
-  );
+  const glowL = ctx.createRadialGradient(0, ch * dpr * 0.5, 10, 0, ch * dpr * 0.5, cw * dpr * 0.45);
+  glowL.addColorStop(0, 'rgba(31,110,242,0.16)');
+  glowL.addColorStop(1, 'rgba(31,110,242,0)');
+  ctx.fillStyle = glowL;
+  ctx.fillRect(0, 0, cw * dpr, ch * dpr);
+  const glowR = ctx.createRadialGradient(cw * dpr, ch * dpr * 0.5, 10, cw * dpr, ch * dpr * 0.5, cw * dpr * 0.45);
+  glowR.addColorStop(0, 'rgba(255,95,162,0.14)');
+  glowR.addColorStop(1, 'rgba(255,95,162,0)');
+  ctx.fillStyle = glowR;
+  ctx.fillRect(0, 0, cw * dpr, ch * dpr);
+
+  ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.ox, dpr * v.oy);
 
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(stadium, 0, 0);
