@@ -284,7 +284,7 @@ export function renderFrame(
   for (const t of g.trail) {
     ctx.fillStyle = `rgba(255,255,255,${0.22 * t.life})`;
     ctx.beginPath();
-    ctx.arc(t.x, t.y - t.z * 0.9, 4.4 * t.life, 0, TAU);
+    ctx.arc(t.x, t.y - t.z * 0.9, 5 * t.life, 0, TAU);
     ctx.fill();
   }
 
@@ -293,13 +293,13 @@ export function renderFrame(
   ctx.fillStyle = 'rgba(8,26,14,0.30)';
   for (const p of g.players) {
     ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 3.4, 11.5, 4.6, 0, 0, TAU);
+    ctx.ellipse(p.x, p.y + 3.4, 12.4, 5, 0, 0, TAU);
     ctx.fill();
   }
   const bs = clamp(1 - b.z / 220, 0.35, 1);
   ctx.fillStyle = `rgba(8,26,14,${0.32 * bs})`;
   ctx.beginPath();
-  ctx.ellipse(b.x, b.y + 2.6, 7.4 * bs + 2, 3.1 * bs + 0.8, 0, 0, TAU);
+  ctx.ellipse(b.x, b.y + 2.6, 8.2 * bs + 2, 3.4 * bs + 0.9, 0, 0, TAU);
   ctx.fill();
 
   /* players sorted by y */
@@ -313,7 +313,7 @@ export function renderFrame(
       ctx.lineWidth = 3.4;
       ctx.strokeStyle = 'rgba(255,255,255,0.22)';
       ctx.beginPath();
-      ctx.ellipse(a.x, a.y + 3, 19, 8, 0, 0, TAU);
+      ctx.ellipse(a.x, a.y + 3, 20, 8.4, 0, 0, TAU);
       ctx.stroke();
       const frac = g.chargeFrac;
       const col =
@@ -321,7 +321,7 @@ export function renderFrame(
       ctx.strokeStyle = col;
       ctx.beginPath();
       ctx.ellipse(
-        a.x, a.y + 3, 19, 8, 0,
+        a.x, a.y + 3, 20, 8.4, 0,
         -Math.PI / 2, -Math.PI / 2 + frac * TAU
       );
       ctx.stroke();
@@ -406,14 +406,23 @@ function drawGoals(ctx: CanvasRenderingContext2D, g: GameView) {
 const KITS = {
   blue: { shirt1: '#4d97ff', shirt2: '#1b5fd6', trim: '#eaf2ff', shorts: '#123e8c', socks: '#1b5fd6', num: '#eaf2ff', sleeve: '#2b6fe8' },
   white: { shirt1: '#ffffff', shirt2: '#dde3ee', trim: '#ff5fa2', shorts: '#ff5fa2', socks: '#f2f5fb', num: '#2a3049', sleeve: '#ff5fa2' },
-  gk: { shirt1: '#ffe14d', shirt2: '#e8a80c', trim: '#20242f', shorts: '#232936', socks: '#e8a80c', num: '#20242f', sleeve: '#f5c518' },
+  /* BLUE keeper — emerald, clearly one of ours */
+  gkB: { shirt1: '#4fe08f', shirt2: '#129a52', trim: '#0b3d22', shorts: '#0e4026', socks: '#17b45f', num: '#0b3d22', sleeve: '#25c46d', cap: '#0b3d22' },
+  /* WHITE/PINK keeper — amber */
+  gkY: { shirt1: '#ffe14d', shirt2: '#e8a80c', trim: '#20242f', shorts: '#232936', socks: '#e8a80c', num: '#20242f', sleeve: '#f5c518', cap: '#20242f' },
 };
 
 function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
   const t = g.tGlobal;
   const speed = Math.hypot(p.vx, p.vy);
   const moving = speed > 25;
-  const kit = p.gk ? KITS.gk : p.team === 0 ? KITS.blue : KITS.white;
+  const kit = p.gk
+    ? p.team === 0
+      ? KITS.gkB
+      : KITS.gkY
+    : p.team === 0
+      ? KITS.blue
+      : KITS.white;
   const x = p.x;
 
   const bounce = p.celebrateT > 0 ? Math.abs(Math.sin(t * 11 + p.id)) * 6 : 0;
@@ -432,7 +441,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
       ctx.strokeStyle = `rgba(93,178,255,${a})`;
       ctx.lineWidth = 2.4;
       ctx.beginPath();
-      ctx.ellipse(x, p.y + 3, 15 + Math.sin(t * 6) * 1.6, 6.4, 0, 0, TAU);
+      ctx.ellipse(x, p.y + 3, 16 + Math.sin(t * 6) * 1.6, 6.8, 0, 0, TAU);
       ctx.stroke();
     }
     if (p.hasBallGlow > 0.02) {
@@ -503,7 +512,11 @@ function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
   ctx.fillStyle = kit.trim;
   ctx.fillRect(x - 9, hipY - 9.5, 18, 2.2);
   // collar
-  ctx.fillStyle = p.gk ? '#20242f' : p.team === 1 ? '#ff5fa2' : 'rgba(255,255,255,0.9)';
+  ctx.fillStyle = p.gk
+    ? p.team === 0 ? KITS.gkB.cap : KITS.gkY.cap
+    : p.team === 1
+      ? '#ff5fa2'
+      : 'rgba(255,255,255,0.9)';
   rr(ctx, x - 3.6, hipY - 25, 7.2, 3.2, 1.6);
   ctx.fill();
 
@@ -558,7 +571,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
   ctx.arc(x - face * 1.1, headY - 1.5, 6.3, Math.PI * 0.95, Math.PI * 2.05);
   ctx.fill();
   if (p.gk) {
-    ctx.fillStyle = '#20242f';
+    ctx.fillStyle = p.team === 0 ? KITS.gkB.cap : KITS.gkY.cap;
     ctx.beginPath();
     ctx.arc(x, headY - 2.4, 6.3, Math.PI, TAU);
     ctx.fill();
@@ -587,7 +600,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
 function drawBall(ctx: CanvasRenderingContext2D, g: GameView) {
   const b = g.ball;
   const y = b.y - b.z * 0.92;
-  const r = 7.3;
+  const r = 8;
 
   ctx.save();
   ctx.translate(b.x, y);
@@ -606,7 +619,7 @@ function drawBall(ctx: CanvasRenderingContext2D, g: GameView) {
   ctx.beginPath(); // centre pentagon
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * TAU - Math.PI / 2;
-    const px = Math.cos(a) * 3.1, pyv = Math.sin(a) * 3.1;
+    const px = Math.cos(a) * 3.4, pyv = Math.sin(a) * 3.4;
     i === 0 ? ctx.moveTo(px, pyv) : ctx.lineTo(px, pyv);
   }
   ctx.closePath();

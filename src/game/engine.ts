@@ -849,7 +849,7 @@ export class Game implements GameView {
       if (gk.aiT <= 0) {
         const mates = this.players.filter((q) => q.team === gk.team && !q.gk);
         const m = mates.reduce((a2, c) =>
-          defRight ? (c.x > a2.x ? c : a2) : (c.x < a2.x ? c : a2)
+          defRight ? (c.x < a2.x ? c : a2) : (c.x > a2.x ? c : a2)
         );
         const angle = Math.atan2(m.y - b.y + rand(-40, 40), m.x - b.x);
         this.kick(gk, rand(430, 500), angle, rand(220, 300), 2);
@@ -879,7 +879,7 @@ export class Game implements GameView {
           b.vz = rand(130, 230);
           b.freeT = 0.5;
           b.owner = null;
-          this.stats.saves++;
+          if (gk.team === 1) this.stats.saves++;
           this.spawnSparks(b.x, b.y, b.z);
           gk.lungeT = 0.3;
           sfx.save();
