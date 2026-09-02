@@ -68,6 +68,10 @@ export interface Dict {
   aboutName: string;
   aboutClass: string;
   aboutContact: string;
+  /* orientation */
+  rotateTitle: string;
+  rotateText: string;
+  rotateContinue: string;
 }
 
 export const STR: Record<Lang, Dict> = {
@@ -202,6 +206,10 @@ export const STR: Record<Lang, Dict> = {
     aboutName: 'Arsam, 11 years old, from Dubai',
     aboutClass: "Student in Dr. Aghaei's class",
     aboutContact: 'Teacher Contact:',
+    rotateTitle: 'Rotate your phone',
+    rotateText:
+      'MAGIC FOOTBALL plays best in landscape — turn your phone sideways to see the whole pitch.',
+    rotateContinue: 'Play anyway',
   },
 
   /* ================================ فارسی ================================ */
@@ -335,6 +343,10 @@ export const STR: Record<Lang, Dict> = {
     aboutName: 'آرسام، 11 ساله از دبی',
     aboutClass: 'از هنرجویان کلاس خانم دکتر آقایی',
     aboutContact: 'شماره استاد:',
+    rotateTitle: 'گوشی را بچرخانید',
+    rotateText:
+      'مجیک فوتبال در حالت افقی بهترین تجربه را دارد — برای دیدنِ کل زمین، گوشی را بچرخانید.',
+    rotateContinue: 'ادامه در همین حالت',
   },
 };
 

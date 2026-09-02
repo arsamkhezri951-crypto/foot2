@@ -146,8 +146,8 @@ function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
       onPointerCancel={end}
       className="absolute z-20"
       style={{
-        left: 'max(10px, 2vh)',
-        bottom: 'max(10px, 2vh)',
+        left: 'calc(env(safe-area-inset-left, 0px) + max(10px, 2vh))',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(10px, 2vh))',
         width: 'min(36vmin, 210px)',
         height: 'min(36vmin, 210px)',
         touchAction: 'none',
@@ -218,10 +218,13 @@ function ActionButtons({ game, t }: { game: () => Game | null; t: Dict }) {
     <div
       className="absolute z-20 pointer-events-none"
       style={{
-        right: 'max(12px, 2.5vw)',
-        bottom: 'max(12px, 2.5vh)',
+        right: 'calc(env(safe-area-inset-right, 0px) + max(12px, 2.5vw))',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(12px, 2.5vh))',
         width: 200,
         height: 158,
+        /* shrinks gracefully on short landscape screens (phone heights) */
+        transform: 'scale(var(--ctrl-scale, 1))',
+        transformOrigin: '100% 100%',
       }}
     >
       {/* CROSS */}
@@ -347,8 +350,8 @@ function Modal({
           <button
             className="hud-btn"
             style={{
-              width: 38,
-              height: 38,
+              width: 44,
+              height: 44,
               color: '#bcd2f5',
               background: 'rgba(19,35,63,0.8)',
               border: '1px solid rgba(90,140,220,0.45)',
@@ -537,6 +540,83 @@ function LangToggle({ lang, setLang, t }: { lang: Lang; setLang: (l: Lang) => vo
   );
 }
 
+/* ================= orientation (portrait → friendly rotate prompt) ================= */
+function usePortrait() {
+  const [portrait, setPortrait] = useState(
+    () => window.innerHeight > window.innerWidth
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)');
+    const update = () => setPortrait(window.innerHeight > window.innerWidth);
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    else mq.addListener(update);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else mq.removeListener(update);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return portrait;
+}
+
+function RotateOverlay({ t, onContinue }: { t: Dict; onContinue: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-[25] flex items-center justify-center p-4 fade-in"
+      style={{
+        background: 'rgba(3,8,16,0.88)',
+        touchAction: 'none',
+        pointerEvents: 'auto',
+      }}
+    >
+      <div className="rise-in flex flex-col items-center text-center" style={{ maxWidth: 400 }}>
+        <div className="phone-tilt">
+          <svg width="76" height="76" viewBox="0 0 48 48" fill="none" aria-hidden>
+            <rect
+              x="15" y="7" width="18" height="34" rx="4.5"
+              stroke="#7db8ff" strokeWidth="2.6"
+            />
+            <path d="M21 36.5h6" stroke="#7db8ff" strokeWidth="2.6" strokeLinecap="round" />
+            <circle cx="24" cy="12.3" r="1.3" fill="#7db8ff" />
+            <path
+              d="M6 27c1.5 4.5 4.5 8 8.4 10.3M42 21c-1.5-4.5-4.5-8-8.4-10.3"
+              stroke="#ffd23f" strokeWidth="2.4" strokeLinecap="round"
+            />
+            <path d="m13 39.5 1.8-2.6-3-.9Z" fill="#ffd23f" />
+            <path d="m35 8.5-1.8 2.6 3 .9Z" fill="#ffd23f" />
+          </svg>
+        </div>
+        <div
+          className="font-display text-2xl mt-5"
+          style={{ color: '#ffffff', textShadow: '0 3px 0 rgba(0,0,0,0.45)' }}
+        >
+          {t.rotateTitle}
+        </div>
+        <p className="font-body text-[13.5px] leading-6 mt-2" style={{ color: '#9db4dc' }}>
+          {t.rotateText}
+        </p>
+        <button
+          className="hud-btn px-8 py-3 text-sm text-white mt-5"
+          style={{
+            background: 'linear-gradient(180deg,#1d3a6b,#122547)',
+            border: '1px solid rgba(90,140,220,0.5)',
+          }}
+          onClick={() => {
+            sfx.init();
+            sfx.click();
+            onContinue();
+          }}
+        >
+          {t.rotateContinue}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ================= app ================= */
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -552,8 +632,15 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang());
   const [muted, setMuted] = useState<boolean>(() => loadMuted());
   const [modal, setModal] = useState<null | 'help' | 'about'>(null);
+  const portrait = usePortrait();
+  const [rotateDismissed, setRotateDismissed] = useState(false);
 
   const t = STR[lang];
+
+  /* re-show the rotate hint whenever orientation changes back to portrait */
+  useEffect(() => {
+    setRotateDismissed(false);
+  }, [portrait]);
 
   /* language + direction + persistence */
   useEffect(() => {
@@ -612,6 +699,7 @@ export default function App() {
     <div
       className="fixed inset-0 overflow-hidden"
       style={{ background: '#050b16', touchAction: 'none' }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <canvas ref={canvasRef} className="absolute inset-0" />
 
@@ -619,7 +707,10 @@ export default function App() {
       {inMatch && (
         <div className="absolute inset-0 pointer-events-none z-10">
           {/* scoreboard */}
-          <div className="absolute top-[max(8px,1.6vh)] left-1/2 -translate-x-1/2 rise-in">
+          <div
+            className="absolute left-1/2 -translate-x-1/2 rise-in"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + max(8px, 1.6vh))' }}
+          >
             <div
               className="flex items-center gap-2 rounded-xl px-3 py-1.5"
               style={{
@@ -648,11 +739,17 @@ export default function App() {
           </div>
 
           {/* pause / sound */}
-          <div className="absolute top-[max(8px,1.6vh)] right-[max(10px,1.8vw)] flex gap-2 pointer-events-auto">
+          <div
+            className="absolute flex gap-2 pointer-events-auto"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 0px) + max(8px, 1.6vh))',
+              right: 'calc(env(safe-area-inset-right, 0px) + max(10px, 1.8vw))',
+            }}
+          >
             <button
               className="hud-btn"
               style={{
-                width: 42, height: 42, color: '#bcd2f5',
+                width: 44, height: 44, color: '#bcd2f5',
                 background: 'linear-gradient(180deg, #16294a, #0c1a30)',
                 border: '1px solid rgba(90,140,220,0.4)',
               }}
@@ -664,7 +761,7 @@ export default function App() {
             <button
               className="hud-btn"
               style={{
-                width: 42, height: 42, color: '#bcd2f5',
+                width: 44, height: 44, color: '#bcd2f5',
                 background: 'linear-gradient(180deg, #16294a, #0c1a30)',
                 border: '1px solid rgba(90,140,220,0.4)',
               }}
@@ -677,7 +774,10 @@ export default function App() {
 
           {/* kickoff chip */}
           {phase === 'kickoff' && (
-            <div className="absolute top-[max(58px,9vh)] left-1/2 -translate-x-1/2">
+            <div
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + max(54px, 8.5vh))' }}
+            >
               <div
                 className="font-display text-sm tracking-widest px-4 py-1.5 rounded-full rise-in"
                 style={{ background: 'rgba(10,22,42,0.85)', color: '#ffd23f', border: '1px solid rgba(255,210,63,0.4)' }}
@@ -721,6 +821,11 @@ export default function App() {
             </>
           )}
         </div>
+      )}
+
+      {/* ==================== ROTATE HINT (portrait) ==================== */}
+      {inMatch && controlsLive && portrait && !rotateDismissed && (
+        <RotateOverlay t={t} onContinue={() => setRotateDismissed(true)} />
       )}
 
       {/* ==================== PAUSE ==================== */}
@@ -812,7 +917,10 @@ export default function App() {
 
           <div
             className="absolute top-1/2 -translate-y-1/2 flex flex-col items-start pointer-events-auto max-w-[560px] w-[min(94vw,560px)]"
-            style={{ insetInlineStart: 'max(20px,4vw)' }}
+            style={{
+              insetInlineStart:
+                'calc(max(env(safe-area-inset-left,0px), env(safe-area-inset-right,0px)) + max(20px,4vw))',
+            }}
           >
             <div className="flex items-center gap-2 mb-2 rise-in">
               <span className="inline-flex items-center gap-1.5 font-body text-[11px] font-bold tracking-[0.22em] px-3 py-1 rounded-full" style={{ color: '#ff8f8f', background: 'rgba(60,12,20,0.7)', border: '1px solid rgba(255,110,110,0.4)' }}>
@@ -877,7 +985,7 @@ export default function App() {
               <button
                 className="menu-btn"
                 style={{
-                  width: 42, height: 42, color: muted ? '#7c8db0' : '#cfe0fa',
+                  width: 44, height: 44, color: muted ? '#7c8db0' : '#cfe0fa',
                   background: 'rgba(13,27,51,0.85)',
                   border: '1px solid rgba(90,140,220,0.45)',
                 }}
@@ -904,8 +1012,13 @@ export default function App() {
           </div>
 
           <div
-            className="absolute bottom-[max(14px,3vh)] font-body text-[11px] pointer-events-none"
-            style={{ insetInlineEnd: 'max(16px,3vw)', color: '#5b7396' }}
+            className="absolute font-body text-[11px] pointer-events-none"
+            style={{
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(14px,3vh))',
+              insetInlineEnd:
+                'calc(max(env(safe-area-inset-left,0px), env(safe-area-inset-right,0px)) + max(16px,3vw))',
+              color: '#5b7396',
+            }}
           >
             {t.camNote}
           </div>

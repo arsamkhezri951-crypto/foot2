@@ -225,3 +225,35 @@ html[dir="rtl"] .hud-btn {
 .panel-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---------------- mobile hardening ---------------- */
+:root {
+  /* action cluster shrinks on short landscape screens (phones) */
+  --ctrl-scale: clamp(0.6, calc(100vh / 780), 1);
+}
+html,
+body {
+  overscroll-behavior: none;
+}
+a,
+button {
+  touch-action: manipulation; /* no double-tap zoom on tappable UI */
+}
+
+@keyframes phone-tilt {
+  0%,
+  12% {
+    transform: rotate(0deg);
+  }
+  42%,
+  72% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+.phone-tilt {
+  animation: phone-tilt 2.6s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
