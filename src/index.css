@@ -149,3 +149,79 @@ canvas {
 .pulse-ring {
   animation: pulse-ring 1.6s ease-out infinite;
 }
+
+/* ---------------- Persian (RTL) typography ---------------- */
+html[dir="rtl"] {
+  --font-display: "Vazirmatn", "Rubik", sans-serif;
+  --font-body: "Vazirmatn", "Rubik", sans-serif;
+}
+html[dir="rtl"] .hud-btn {
+  letter-spacing: 0;
+  font-weight: 800;
+}
+/* the brand logo always keeps the Latin display face */
+.font-logo {
+  font-family: "Bungee", "Vazirmatn", sans-serif !important;
+}
+.score-num {
+  font-family: "Bungee", "Vazirmatn", sans-serif;
+}
+
+/* ---------------- menu micro-interactions ---------------- */
+.menu-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    transform 0.13s ease,
+    border-color 0.13s ease,
+    box-shadow 0.13s ease,
+    color 0.13s ease,
+    background 0.13s ease;
+}
+.menu-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(125, 184, 255, 0.8) !important;
+  box-shadow: 0 10px 26px rgba(24, 68, 150, 0.4);
+}
+.play-btn {
+  transition:
+    transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1.4),
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+.play-btn:hover {
+  transform: scale(1.055);
+  filter: brightness(1.12);
+}
+
+/* ---------------- modals ---------------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 0.22s ease-out both;
+}
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #2c4570 transparent;
+}
+.panel-scroll::-webkit-scrollbar {
+  width: 9px;
+}
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: #2c4570;
+  border-radius: 8px;
+  border: 2px solid #0a1526;
+}
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
