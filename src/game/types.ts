@@ -1,27 +1,24 @@
-// ---- World geometry (world units) ----
-export const PITCH_W = 1050;
-export const PITCH_H = 680;
-export const MARGIN = 240; // stands / atmosphere around the pitch
-export const WORLD_W = PITCH_W + MARGIN * 2;
-export const WORLD_H = PITCH_H + MARGIN * 2;
-
-export const GOAL_HALF = 74; // half width of the goal mouth
-export const GOAL_DEPTH = 46; // net depth behind the line
-export const GOAL_H = 96; // crossbar height (for z checks)
-export const CY = PITCH_H / 2; // 340
-
-export const MATCH_LEN = 180; // seconds
-
-export type Team = 0 | 1; // 0 = blue (player), 1 = white/pink (AI)
-
+export type Team = 0 | 1; // 0 = BLUE (attacks right), 1 = WHITE/PINK (attacks left)
 export type GamePhase =
   | 'demo'
   | 'kickoff'
   | 'play'
   | 'goal'
-  | 'fulltime'
-  | 'paused';
+  | 'paused'
+  | 'fulltime';
 
+/* ---------------- pitch geometry (pitch space, pitch TL = 0,0) ------------- */
+export const PITCH_W = 960;
+export const PITCH_H = 600;
+export const CY = PITCH_H / 2;
+export const GOAL_HALF = 84; // half of the goal mouth
+export const MARGIN = 132; // stadium apron around the pitch (world space)
+export const WORLD_W = PITCH_W + MARGIN * 2;
+export const WORLD_H = PITCH_H + MARGIN * 2;
+
+export const MATCH_LEN = 180; // seconds — quick arcade match
+
+/* ---------------- entities ---------------- */
 export interface PlayerT {
   id: number;
   team: Team;
@@ -31,42 +28,38 @@ export interface PlayerT {
   y: number;
   vx: number;
   vy: number;
-  dir: number; // facing angle (rad)
+  dir: number; // facing angle
   baseSpeed: number;
-  runPhase: number; // leg cycle
-  kickT: number; // kick anim countdown
-  kickKind: number; // 0 normal, 1 shoot, 2 pass, 3 cross
-  dashT: number; // dribble burst
-  dashCool: number;
+  runPhase: number;
+  kickT: number;
+  kickKind: number; // 1 shoot, 2 pass, 3 cross
   tackleCool: number;
-  aiT: number; // AI re-decision timer
-  tx: number; // AI target
+  aiT: number;
+  tx: number;
   ty: number;
   celebrateT: number;
+  lungeT: number;
+  hasBallGlow: number;
+  shotFaced: boolean; // GK: already decided on the current shot
   skin: string;
   hair: string;
-  lungeT: number; // failed tackle lunge anim
-  hasBallGlow: number;
-  shotFaced: boolean; // keeper: save decision already rolled for the current shot
 }
 
 export interface BallT {
   x: number;
   y: number;
-  z: number;
+  z: number; // height above grass
   vx: number;
   vy: number;
   vz: number;
   spin: number;
   owner: PlayerT | null;
-  freeT: number; // possession lockout after a kick
+  freeT: number; // time before anyone may pick it up
   lastKicker: PlayerT | null;
 }
 
-export type ParticleKind = 'dust' | 'confetti' | 'spark' | 'grass';
-
 export interface ParticleT {
-  kind: ParticleKind;
+  kind: 'dust' | 'confetti' | 'spark';
   x: number;
   y: number;
   z: number;
@@ -88,22 +81,6 @@ export interface TrailDot {
   life: number;
 }
 
-export interface InputState {
-  mx: number; // -1..1 joystick / keys
-  my: number;
-  shoot: boolean; // held
-}
-
-/**
- * FIXED full-pitch camera: a static transform that fits the entire world
- * (pitch + stadium margins) inside the viewport. Never moves, never zooms.
- */
-export interface ViewT {
-  scale: number; // world -> screen scale
-  ox: number; // screen-space offset of world origin
-  oy: number;
-}
-
 export interface StatsT {
   shots: number;
   passes: number;
@@ -112,29 +89,31 @@ export interface StatsT {
   saves: number;
 }
 
+export interface InputState {
+  mx: number;
+  my: number;
+  shoot: boolean;
+}
+
+/* ---------------- view the renderer reads ---------------- */
 export interface GameView {
-  phase: GamePhase;
   players: PlayerT[];
   ball: BallT;
   particles: ParticleT[];
   trail: TrailDot[];
-  view: ViewT;
-  score: [number, number];
-  timeLeft: number;
   activeId: number;
-  chargeFrac: number; // 0..1 shoot charge
+  chargeFrac: number;
   crossMark: { x: number; y: number; t: number } | null;
-  netRipple: { side: number; amt: number; y: number };
-  goalT: number;
-  goalTeam: Team | null;
-  demo: boolean;
-  stats: StatsT;
+  netRipple: { side: -1 | 1; amt: number; y: number };
   tGlobal: number;
+  phase: GamePhase;
+  demo: boolean;
 }
 
-export const rand = (a: number, b: number) => a + Math.random() * (b - a);
+/* ---------------- helpers ---------------- */
 export const clamp = (v: number, a: number, b: number) =>
   v < a ? a : v > b ? b : v;
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-export const dist = (ax: number, ay: number, bx: number, by: number) =>
-  Math.hypot(ax - bx, ay - by);
+export const dist = (x1: number, y1: number, x2: number, y2: number) =>
+  Math.hypot(x2 - x1, y2 - y1);
+export const rand = (a: number, b: number) => a + Math.random() * (b - a);

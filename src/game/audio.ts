@@ -1,44 +1,50 @@
-/* Lightweight Web-Audio synth SFX — no external audio assets. */
+/* Tiny synthesized WebAudio engine — no audio files, no libraries. */
 
-class SFX {
-  private ctx: AudioContext | null = null;
+type Ctx = AudioContext;
+
+class Sfx {
+  private ac: Ctx | null = null;
   private master: GainNode | null = null;
+  private crowdSrc: AudioBufferSourceNode | null = null;
+  private crowdGain: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
-  private ambient: { src: AudioBufferSourceNode; gain: GainNode } | null =
-    null;
   muted = false;
 
-  ensure() {
-    if (!this.ctx) {
-      const AC =
+  init() {
+    if (this.ac) {
+      if (this.ac.state === 'suspended') this.ac.resume().catch(() => {});
+      return;
+    }
+    try {
+      const AC: typeof AudioContext =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
-      this.ctx = new AC();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = this.muted ? 0 : 0.55;
-      this.master.connect(this.ctx.destination);
-      const len = this.ctx.sampleRate;
-      this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      this.ac = new AC();
+      this.master = this.ac.createGain();
+      this.master.gain.value = 0.5;
+      this.master.connect(this.ac.destination);
+      // shared noise buffer
+      const len = this.ac.sampleRate * 2;
+      this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    } catch {
+      this.ac = null;
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
   setMuted(m: boolean) {
     this.muted = m;
-    if (this.master && this.ctx)
-      this.master.gain.setTargetAtTime(m ? 0 : 0.55, this.ctx.currentTime, 0.05);
+    if (this.master && this.ac)
+      this.master.gain.setTargetAtTime(m ? 0 : 0.5, this.ac.currentTime, 0.05);
   }
 
-  private env(peak: number, a: number, dur: number): GainNode | null {
-    if (!this.ctx || !this.master) return null;
-    const g = this.ctx.createGain();
-    const t = this.ctx.currentTime;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(peak, t + a);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  private env(gain: number, dur: number): GainNode | null {
+    if (!this.ac || !this.master) return null;
+    const g = this.ac.createGain();
+    g.gain.setValueAtTime(gain, this.ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, this.ac.currentTime + dur);
     g.connect(this.master);
     return g;
   }
@@ -48,163 +54,150 @@ class SFX {
     f0: number,
     f1: number,
     dur: number,
-    peak: number,
-    delay = 0
+    gain: number
   ) {
-    if (!this.ctx) return;
-    const g = this.env(peak, 0.008, dur);
+    if (!this.ac) return;
+    const g = this.env(gain, dur);
     if (!g) return;
-    const o = this.ctx.createOscillator();
+    const o = this.ac.createOscillator();
     o.type = type;
-    const t = this.ctx.currentTime + delay;
-    o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    o.frequency.setValueAtTime(f0, this.ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(
+      Math.max(1, f1),
+      this.ac.currentTime + dur
+    );
     o.connect(g);
-    o.start(t);
-    o.stop(t + dur + 0.05);
+    o.start();
+    o.stop(this.ac.currentTime + dur + 0.02);
   }
 
-  private noise(
-    dur: number,
-    peak: number,
-    filterType: BiquadFilterType,
-    freq: number,
-    q = 1,
-    delay = 0
-  ) {
-    if (!this.ctx || !this.noiseBuf) return;
-    const g = this.env(peak, 0.01, dur);
+  private noise(dur: number, gain: number, freq: number, q = 1) {
+    if (!this.ac || !this.noiseBuf) return;
+    const g = this.env(gain, dur);
     if (!g) return;
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.noiseBuf;
-    s.loop = true;
-    const f = this.ctx.createBiquadFilter();
-    f.type = filterType;
+    const src = this.ac.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const f = this.ac.createBiquadFilter();
+    f.type = 'bandpass';
     f.frequency.value = freq;
     f.Q.value = q;
-    s.connect(f);
+    src.connect(f);
     f.connect(g);
-    const t = this.ctx.currentTime + delay;
-    s.start(t, Math.random());
-    s.stop(t + dur + 0.05);
+    src.start();
+    src.stop(this.ac.currentTime + dur + 0.02);
+  }
+
+  kick(power = 0.5) {
+    this.tone('sine', 170 + power * 60, 48, 0.14, 0.55 + power * 0.35);
+    this.noise(0.08, 0.25 + power * 0.25, 2600, 0.8);
+  }
+
+  pass() {
+    this.tone('triangle', 520, 760, 0.09, 0.22);
+    this.noise(0.05, 0.12, 3200, 1);
+  }
+
+  bounce(v: number) {
+    const p = Math.min(1, v / 600);
+    this.tone('sine', 130 + p * 40, 55, 0.09, 0.18 + p * 0.2);
+  }
+
+  save() {
+    this.tone('square', 300, 150, 0.12, 0.2);
+    this.noise(0.12, 0.25, 1400, 0.7);
+  }
+
+  post() {
+    this.tone('triangle', 1180, 900, 0.4, 0.22);
+  }
+
+  whistle(long = false) {
+    if (!this.ac) return;
+    const dur = long ? 0.65 : 0.28;
+    const g = this.env(0.16, dur);
+    if (!g) return;
+    const o = this.ac.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(2150, this.ac.currentTime);
+    const lfo = this.ac.createOscillator();
+    lfo.frequency.value = long ? 9 : 24;
+    const lg = this.ac.createGain();
+    lg.gain.value = 90;
+    lfo.connect(lg);
+    lg.connect(o.frequency);
+    o.connect(g);
+    o.start();
+    lfo.start();
+    o.stop(this.ac.currentTime + dur);
+    lfo.stop(this.ac.currentTime + dur);
+  }
+
+  goalRoar() {
+    if (!this.ac || !this.noiseBuf) return;
+    const g = this.env(0.5, 1.6);
+    if (!g) return;
+    const src = this.ac.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = this.ac.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(500, this.ac.currentTime);
+    f.frequency.linearRampToValueAtTime(1400, this.ac.currentTime + 0.35);
+    f.frequency.linearRampToValueAtTime(400, this.ac.currentTime + 1.5);
+    src.connect(f);
+    f.connect(g);
+    src.start();
+    src.stop(this.ac.currentTime + 1.6);
+    // stadium horn stab
+    this.tone('sawtooth', 233, 233, 0.5, 0.1);
+    this.tone('sawtooth', 311, 311, 0.5, 0.08);
   }
 
   click() {
-    this.ensure();
-    this.tone('triangle', 660, 990, 0.07, 0.16);
+    this.tone('triangle', 700, 480, 0.06, 0.16);
   }
-  kick(power: number) {
-    this.ensure();
-    this.tone('sine', 150 + power * 60, 42, 0.16 + power * 0.08, 0.5);
-    this.noise(0.06, 0.22 + power * 0.2, 'highpass', 900, 0.8);
-  }
-  pass() {
-    this.ensure();
-    this.noise(0.14, 0.2, 'bandpass', 1500, 1.4);
-    this.tone('sine', 130, 50, 0.1, 0.3);
-  }
-  dash() {
-    this.ensure();
-    this.noise(0.2, 0.18, 'bandpass', 700, 0.7);
-    this.tone('sawtooth', 220, 480, 0.16, 0.06);
-  }
-  bounce(impact: number) {
-    this.ensure();
-    this.tone('sine', 190, 70, 0.07, Math.min(0.2, 0.06 + impact * 0.0004));
-  }
-  post() {
-    this.ensure();
-    this.tone('triangle', 1150, 720, 0.4, 0.3);
-    this.tone('square', 2300, 1500, 0.12, 0.08);
-  }
-  save() {
-    this.ensure();
-    this.tone('sine', 120, 55, 0.18, 0.4);
-    this.noise(0.12, 0.2, 'lowpass', 500);
-  }
-  whistle(long = false) {
-    this.ensure();
-    if (!this.ctx) return;
-    const bursts = long ? 3 : 1;
-    for (let i = 0; i < bursts; i++) {
-      const d = long ? 0.28 : 0.22;
-      const g = this.env(0.22, 0.02, d);
-      if (!g) return;
-      const o = this.ctx.createOscillator();
-      o.type = 'square';
-      const t = this.ctx.currentTime + i * 0.36;
-      o.frequency.setValueAtTime(2350, t);
-      const lfo = this.ctx.createOscillator();
-      lfo.frequency.value = 38;
-      const lg = this.ctx.createGain();
-      lg.gain.value = 120;
-      lfo.connect(lg);
-      lg.connect(o.frequency);
-      o.connect(g);
-      o.start(t);
-      lfo.start(t);
-      o.stop(t + d + 0.02);
-      lfo.stop(t + d + 0.02);
-    }
-  }
-  goalRoar() {
-    this.ensure();
-    if (!this.ctx || !this.noiseBuf) return;
-    const g = this.env(0.0001, 0.01, 2.2);
-    if (!g) return;
-    const t = this.ctx.currentTime;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(0.5, t + 0.25);
-    g.gain.linearRampToValueAtTime(0.32, t + 1.2);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.noiseBuf;
-    s.loop = true;
-    const f = this.ctx.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.setValueAtTime(600, t);
-    f.frequency.linearRampToValueAtTime(1100, t + 0.3);
-    f.Q.value = 0.6;
-    s.connect(f);
-    f.connect(g);
-    s.start(t, Math.random());
-    s.stop(t + 2.3);
-    // stadium horn
-    this.tone('sawtooth', 392, 392, 0.6, 0.1, 0.1);
-    this.tone('sawtooth', 523, 523, 0.7, 0.08, 0.5);
-  }
+
   ambientStart() {
-    this.ensure();
-    if (!this.ctx || !this.noiseBuf || this.ambient) return;
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.noiseBuf;
-    s.loop = true;
-    const f = this.ctx.createBiquadFilter();
+    if (!this.ac || !this.noiseBuf || this.crowdSrc) return;
+    const src = this.ac.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = this.ac.createBiquadFilter();
     f.type = 'lowpass';
-    f.frequency.value = 420;
-    const g = this.ctx.createGain();
-    g.gain.value = 0.035;
-    s.connect(f);
+    f.frequency.value = 620;
+    const g = this.ac.createGain();
+    g.gain.value = 0;
+    g.gain.setTargetAtTime(0.055, this.ac.currentTime, 1.2);
+    const lfo = this.ac.createOscillator();
+    lfo.frequency.value = 0.13;
+    const lg = this.ac.createGain();
+    lg.gain.value = 0.018;
+    lfo.connect(lg);
+    lg.connect(g.gain);
+    src.connect(f);
     f.connect(g);
     g.connect(this.master!);
-    s.start(undefined, Math.random());
-    this.ambient = { src: s, gain: g };
+    src.start();
+    lfo.start();
+    this.crowdSrc = src;
+    this.crowdGain = g;
   }
+
   ambientStop() {
-    if (this.ambient && this.ctx) {
-      const t = this.ctx.currentTime;
-      this.ambient.gain.gain.setTargetAtTime(0.0001, t, 0.3);
-      const src = this.ambient.src;
+    if (this.crowdSrc && this.ac && this.crowdGain) {
+      this.crowdGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.4);
+      const src = this.crowdSrc;
       setTimeout(() => {
         try {
           src.stop();
         } catch {
-          /* noop */
+          /* already stopped */
         }
-      }, 1200);
-      this.ambient = null;
+      }, 1600);
+      this.crowdSrc = null;
+      this.crowdGain = null;
     }
   }
 }
 
-export const sfx = new SFX();
+export const sfx = new Sfx();

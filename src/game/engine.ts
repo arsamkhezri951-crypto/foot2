@@ -3,8 +3,6 @@ import { makeStadiumLayer, renderFrame } from './render';
 import {
   PITCH_W,
   PITCH_H,
-  WORLD_W,
-  WORLD_H,
   GOAL_HALF,
   CY,
   MATCH_LEN,
@@ -13,7 +11,6 @@ import {
   dist,
   rand,
   type BallT,
-  type ViewT,
   type GamePhase,
   type GameView,
   type InputState,
@@ -27,9 +24,11 @@ import {
 export interface Callbacks {
   onHud: (score: [number, number], timeStr: string) => void;
   onGoal: (team: Team) => void;
-  onFullTime: (
-    result: { score: [number, number]; stats: StatsT; win: 'win' | 'draw' | 'loss' }
-  ) => void;
+  onFullTime: (r: {
+    score: [number, number];
+    stats: StatsT;
+    win: 'win' | 'draw' | 'loss';
+  }) => void;
   onPhase: (phase: GamePhase) => void;
 }
 
@@ -58,14 +57,12 @@ export class Game implements GameView {
   };
   particles: ParticleT[] = [];
   trail: TrailDot[] = [];
-  // FIXED camera — never follows the ball, never zooms. Recomputed on resize only.
-  view: ViewT = { scale: 0.6, ox: 0, oy: 0 };
   score: [number, number] = [0, 0];
   timeLeft = MATCH_LEN;
   activeId = 0;
   chargeFrac = 0;
   crossMark: { x: number; y: number; t: number } | null = null;
-  netRipple = { side: 1, amt: 0, y: CY };
+  netRipple: { side: -1 | 1; amt: number; y: number } = { side: 1, amt: 0, y: CY };
   goalT = 0;
   goalTeam: Team | null = null;
   demo = true;
@@ -95,7 +92,6 @@ export class Game implements GameView {
     this.ctx = canvas.getContext('2d')!;
     this.cb = cb;
     this.stadium = makeStadiumLayer();
-    // re-bake once webfonts arrive so board/number lettering is crisp
     if (document.fonts?.ready) {
       document.fonts.ready
         .then(() => {
@@ -166,7 +162,6 @@ export class Game implements GameView {
     this.input.mx = clamp(x, -1, 1);
     this.input.my = clamp(y, -1, 1);
   }
-
   pressShoot() {
     this.input.shoot = true;
   }
@@ -182,9 +177,6 @@ export class Game implements GameView {
   cross() {
     this.doCross();
   }
-  dribble() {
-    this.doDribble();
-  }
 
   /* ---------------- setup ---------------- */
 
@@ -195,19 +187,18 @@ export class Game implements GameView {
       id, team, gk, num, x, y, vx: 0, vy: 0,
       dir: team === 0 ? 0 : Math.PI,
       baseSpeed: gk ? 175 : team === 0 ? 252 : 196,
-      runPhase: rand(0, 6), kickT: 0, kickKind: 0, dashT: 0, dashCool: 0,
-      tackleCool: 0, aiT: rand(0.1, 0.5), tx: x, ty: y, celebrateT: 0,
+      runPhase: rand(0, 6), kickT: 0, kickKind: 0,
+      tackleCool: 0, aiT: rand(0.1, 0.5), tx: x, ty: y,
+      celebrateT: 0, lungeT: 0, hasBallGlow: 0, shotFaced: false,
       skin: SKINS[id % SKINS.length], hair: HAIRS[(id * 2 + 1) % HAIRS.length],
-      lungeT: 0, hasBallGlow: 0, shotFaced: false,
     });
-    // two blue field players + blue keeper + two white field players + white keeper
     this.players = [
       mk(0, 0, false, 10, 300, CY - 90),
       mk(1, 0, false, 7, 260, CY + 150),
-      mk(2, 0, true, 12, 40, CY),
-      mk(3, 1, false, 9, PITCH_W - 300, CY + 90),
-      mk(4, 1, false, 11, PITCH_W - 260, CY - 150),
-      mk(5, 1, true, 1, PITCH_W - 40, CY),
+      mk(2, 1, false, 9, PITCH_W - 300, CY + 90),
+      mk(3, 1, false, 11, PITCH_W - 260, CY - 150),
+      mk(4, 1, true, 1, PITCH_W - 42, CY),
+      mk(5, 0, true, 12, 42, CY),
     ];
   }
 
@@ -215,19 +206,18 @@ export class Game implements GameView {
     const spots: [number, number][] = [
       [PITCH_W / 2 - 62, CY - 34],
       [PITCH_W / 2 - 250, CY + 160],
-      [44, CY],
       [PITCH_W / 2 + 62, CY + 34],
       [PITCH_W / 2 + 250, CY - 160],
-      [PITCH_W - 44, CY],
+      [PITCH_W - 42, CY],
+      [42, CY],
     ];
     this.players.forEach((p, i) => {
       const [sx, sy] = spots[i];
       p.x = sx; p.y = sy; p.vx = 0; p.vy = 0;
       p.tx = sx; p.ty = sy;
       p.dir = p.team === 0 ? 0 : Math.PI;
-      p.kickT = 0; p.dashT = 0; p.lungeT = 0; p.celebrateT = 0;
-      p.tackleCool = 0; p.aiT = rand(0.1, 0.4);
-      p.shotFaced = false;
+      p.kickT = 0; p.lungeT = 0; p.celebrateT = 0;
+      p.tackleCool = 0; p.aiT = rand(0.1, 0.4); p.shotFaced = false;
     });
     const b = this.ball;
     b.x = PITCH_W / 2; b.y = CY; b.z = 0;
@@ -247,20 +237,6 @@ export class Game implements GameView {
     this.canvas.height = Math.round(this.vh * this.dpr);
     this.canvas.style.width = `${this.vw}px`;
     this.canvas.style.height = `${this.vh}px`;
-
-    // FIXED camera: fit the ENTIRE world (goal line to goal line, plus the
-    // stadium apron) inside the viewport with a small margin. This transform
-    // never changes while the ball or players move.
-    const margin = 24;
-    const scale = Math.min(
-      (this.vw - margin) / WORLD_W,
-      (this.vh - margin) / WORLD_H
-    );
-    this.view = {
-      scale,
-      ox: (this.vw - WORLD_W * scale) / 2,
-      oy: (this.vh - WORLD_H * scale) / 2,
-    };
   };
 
   private onKeyDown = (e: KeyboardEvent) => {
@@ -271,7 +247,6 @@ export class Game implements GameView {
     if (e.code === 'Space') this.pressShoot();
     if (e.code === 'KeyX' || e.code === 'KeyK') this.doPass();
     if (e.code === 'KeyC' || e.code === 'KeyL') this.doCross();
-    if (e.code === 'KeyV' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.doDribble();
     if (e.code === 'KeyP' || e.code === 'Escape') {
       if (!this.demo) this.pauseToggle();
     }
@@ -302,26 +277,18 @@ export class Game implements GameView {
   }
 
   private canReach(p: PlayerT, r = 46): boolean {
-    return (
-      this.ball.owner === p ||
-      dist(p.x, p.y, this.ball.x, this.ball.y) < r
-    );
+    return this.ball.owner === p || dist(p.x, p.y, this.ball.x, this.ball.y) < r;
   }
 
   private acquire(p: PlayerT) {
-    // generous grab: take a loose or even held ball right at the feet
     const b = this.ball;
-    if (b.owner && b.owner !== p && b.owner.team !== p.team) {
-      b.owner.hasBallGlow = 0;
-    }
+    if (b.owner && b.owner !== p && b.owner.team !== p.team) b.owner.hasBallGlow = 0;
     b.owner = p;
     b.freeT = 0;
-    if (p.gk) p.aiT = rand(0.7, 1.05); // keeper gathers, then distributes
+    if (p.gk) p.aiT = rand(0.7, 1.05);
   }
 
-  private kick(
-    p: PlayerT, speed: number, angle: number, vz: number, kind: number
-  ) {
+  private kick(p: PlayerT, speed: number, angle: number, vz: number, kind: number) {
     const b = this.ball;
     if (b.owner && b.owner !== p) b.owner.hasBallGlow = 0;
     b.owner = null;
@@ -332,8 +299,6 @@ export class Game implements GameView {
     b.vz = vz;
     p.kickT = 0.32;
     p.kickKind = kind;
-    // every fresh kick re-arms each keeper's single save decision
-    for (const q of this.players) if (q.gk) q.shotFaced = false;
     this.spawnDust(b.x, b.y, 6, speed > 600 ? 2.2 : 1.2);
     sfx.kick(clamp(speed / 900, 0.2, 1));
   }
@@ -384,7 +349,7 @@ export class Game implements GameView {
     const tx = gx + rand(-30, 30);
     const ty = clamp(mate.y + rand(-40, 40), CY - 95, CY + 95);
     const dx = tx - b.x, dy = ty - b.y;
-    const hd = Math.hypot(dx, dy);
+    const hd = Math.max(1, Math.hypot(dx, dy));
     const t = clamp(hd / 460, 0.45, 1.1);
     const angle = Math.atan2(dy, dx);
     this.acquire(p);
@@ -392,17 +357,6 @@ export class Game implements GameView {
     if (p.team === 0) this.stats.passes++;
     this.crossMark = { x: tx, y: ty, t: 0.9 };
     sfx.pass();
-  }
-
-  private doDribble() {
-    if (this.phase !== 'play' && this.phase !== 'demo') return;
-    const p = this.demo ? this.nearestToBall(0) : this.active();
-    if (p.dashCool > 0) return;
-    p.dashT = 0.32;
-    p.dashCool = 1.15;
-    this.spawnDust(p.x, p.y + 2, 8, 1.4);
-    sfx.dash();
-    if (this.ball.owner === p) this.ball.freeT = 0; // keep it glued
   }
 
   private nearestToBall(team: Team): PlayerT {
@@ -424,8 +378,7 @@ export class Game implements GameView {
         kind: 'dust', x: x + rand(-5, 5), y: y + rand(-3, 3), z: rand(0, 5),
         vx: rand(-40, 40) * s, vy: rand(-30, 30) * s, vz: rand(20, 70),
         life: rand(0.3, 0.55), maxLife: 0.55, size: rand(2.5, 5),
-        color: '#cdb894',
-        rot: 0, vrot: 0,
+        color: '#cdb894', rot: 0, vrot: 0,
       });
   }
 
@@ -462,15 +415,14 @@ export class Game implements GameView {
     this.goalT = this.demo ? 1.5 : 2.6;
     this.netRipple = { side: team === 0 ? 1 : -1, amt: 1, y: this.ball.y };
     const gx = team === 0 ? PITCH_W : 0;
-    this.spawnConfetti(gx, this.ball.y, this.demo ? 40 : 110);
-    for (const p of this.players)
-      if (p.team === team) p.celebrateT = 2.3;
+    this.spawnConfetti(gx, this.ball.y, this.demo ? 26 : 60);
+    for (const p of this.players) if (p.team === team) p.celebrateT = 2.3;
     sfx.goalRoar();
     sfx.whistle();
     this.ball.vx *= 0.15;
     this.ball.vy *= 0.15;
     this.ball.vz = 0;
-    this.emitHud(true);
+    this.emitHud();
     if (!this.demo) this.cb.onGoal(team);
   }
 
@@ -482,7 +434,7 @@ export class Game implements GameView {
     }
   }
 
-  /* ---------------- update ---------------- */
+  /* ---------------- main loop ---------------- */
 
   private tick = (ts: number) => {
     this.raf = requestAnimationFrame(this.tick);
@@ -496,7 +448,6 @@ export class Game implements GameView {
     this.tGlobal += dt;
     this.hudAcc += dt;
 
-    // decays
     this.netRipple.amt = Math.max(0, this.netRipple.amt - dt * 0.55);
     if (this.crossMark) {
       this.crossMark.t -= dt;
@@ -504,8 +455,6 @@ export class Game implements GameView {
     }
     for (const p of this.players) {
       p.kickT = Math.max(0, p.kickT - dt);
-      p.dashT = Math.max(0, p.dashT - dt);
-      p.dashCool = Math.max(0, p.dashCool - dt);
       p.tackleCool = Math.max(0, p.tackleCool - dt);
       p.lungeT = Math.max(0, p.lungeT - dt);
       p.celebrateT = Math.max(0, p.celebrateT - dt);
@@ -593,7 +542,7 @@ export class Game implements GameView {
     const b = this.ball;
     b.freeT = Math.max(0, b.freeT - dt);
 
-    // --- charge tracking ---
+    // shot charge tracking
     if (!this.demo) {
       const a = this.active();
       if (this.input.shoot && this.canReach(a, 48)) {
@@ -609,7 +558,7 @@ export class Game implements GameView {
       this.chargeFrac = 0;
     }
 
-    // --- movement ---
+    // movement
     if (!this.demo) {
       let [mx, my] = [this.input.mx, this.input.my];
       if (Math.hypot(mx, my) < 0.08) [mx, my] = this.keyMove();
@@ -621,13 +570,15 @@ export class Game implements GameView {
         this.aiField(p, dt);
     }
 
-    // --- integrate players + separation ---
+    // integrate + soft separation
     for (const p of this.players) {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       if (p.gk) {
-        if (p.team === 0) p.x = clamp(p.x, -8, 190);
-        else p.x = clamp(p.x, PITCH_W - 190, PITCH_W + 8);
+        p.x =
+          p.team === 1
+            ? clamp(p.x, PITCH_W - 190, PITCH_W + 8)
+            : clamp(p.x, -8, 190);
         p.y = clamp(p.y, CY - 140, CY + 140);
       } else {
         p.x = clamp(p.x, -6, PITCH_W + 6);
@@ -651,10 +602,10 @@ export class Game implements GameView {
         }
       }
 
-    // --- ball: carried or free ---
+    // ball: carried or free
     if (b.owner) {
       const p = b.owner;
-      const lead = p.dashT > 0 ? 10 : 14.5;
+      const lead = 14.5;
       const wob = Math.sin(p.runPhase) * 2.4;
       const txp = p.x + Math.cos(p.dir) * lead + Math.cos(p.dir + Math.PI / 2) * wob * 0.4;
       const typ = p.y + Math.sin(p.dir) * lead * 0.8 + Math.sin(p.dir + Math.PI / 2) * wob * 0.4;
@@ -666,7 +617,7 @@ export class Game implements GameView {
       b.vx = p.vx; b.vy = p.vy;
       b.spin += Math.hypot(p.vx, p.vy) * dt * 0.035;
     } else {
-      // gentle magnet toward the controlled player (forgiving control)
+      // forgiving magnet toward the controlled player
       if (!this.demo && b.freeT <= 0) {
         const a = this.active();
         const d = dist(a.x, a.y, b.x, b.y);
@@ -688,26 +639,20 @@ export class Game implements GameView {
           b.vz = -b.vz * 0.48;
         } else b.vz = 0;
       }
-      if (b.z === 0) {
-        const fr = Math.exp(-2.0 * dt);
-        b.vx *= fr; b.vy *= fr;
-      } else {
-        const fr = Math.exp(-0.25 * dt);
-        b.vx *= fr; b.vy *= fr;
-      }
+      const fr = Math.exp((b.z === 0 ? -2.0 : -0.25) * dt);
+      b.vx *= fr; b.vy *= fr;
       const spd = Math.hypot(b.vx, b.vy);
       if (spd > 980) {
         b.vx = (b.vx / spd) * 980;
         b.vy = (b.vy / spd) * 980;
       }
       b.spin += spd * dt * 0.03 * (b.vx >= 0 ? 1 : -1);
-      if (spd > 430 && b.z < 70)
-        this.trail.push({ x: b.x, y: b.y, z: b.z, life: 1 });
+      if (spd > 430 && b.z < 70) this.trail.push({ x: b.x, y: b.y, z: b.z, life: 1 });
     }
     for (const tr of this.trail) tr.life -= dt * 2.6;
     this.trail = this.trail.filter((t) => t.life > 0);
 
-    // --- pickup ---
+    // pickup
     if (!b.owner && b.freeT <= 0 && b.z < 26) {
       const spd = Math.hypot(b.vx, b.vy);
       if (spd < 660) {
@@ -722,7 +667,7 @@ export class Game implements GameView {
       }
     }
 
-    // --- shot blocks: fast loose balls can be deflected by bodies ---
+    // shot blocks by bodies
     if (!b.owner && b.z < 50 && b.freeT <= 0.05) {
       const spd = Math.hypot(b.vx, b.vy);
       if (spd > 380) {
@@ -745,11 +690,11 @@ export class Game implements GameView {
       }
     }
 
-    // --- tackles ---
+    // tackles
     if (b.owner) {
       for (const p of this.players) {
         const o = b.owner!;
-        if (p.team === o.team || p.tackleCool > 0) continue;
+        if (p.team === o.team || p.gk || p.tackleCool > 0) continue;
         if (dist(p.x, p.y, o.x, o.y) < 25) {
           p.tackleCool = p.team === 0 ? 1.35 : 1.7;
           let prob = p.team === 0 ? 0.72 : 0.3;
@@ -773,7 +718,6 @@ export class Game implements GameView {
   private autoSwitch() {
     this.switchT = 0.12;
     const b = this.ball;
-    // keepers are never user-controlled — only the two blue field players
     if (b.owner && b.owner.team === 0 && !b.owner.gk) {
       this.activeId = b.owner.id;
       return;
@@ -788,7 +732,7 @@ export class Game implements GameView {
 
   private controlPlayer(p: PlayerT, mx: number, my: number, dt: number) {
     const l = Math.hypot(mx, my);
-    const sp = p.baseSpeed * (p.dashT > 0 ? 1.55 : 1);
+    const sp = p.baseSpeed;
     if (l > 0.05) {
       const k = Math.min(1, dt * 9.5);
       p.vx += (mx * sp - p.vx) * k;
@@ -823,7 +767,6 @@ export class Game implements GameView {
 
     p.aiT -= dt;
     if (b.owner === p) {
-      // has the ball
       const goalD = Math.abs(goalX - b.x);
       let pressure = 1e9;
       for (const f of foes) pressure = Math.min(pressure, dist(f.x, f.y, p.x, p.y));
@@ -831,7 +774,8 @@ export class Game implements GameView {
         p.aiT = rand(0.32, 0.6);
         if (goalD < 330 && Math.random() < 0.5) {
           const err = rand(-0.14, 0.14) * (Math.random() < 0.3 ? 2.3 : 1);
-          const angle = Math.atan2(CY - b.y + rand(-30, 30), goalX - b.x) + err * (atkR ? 1 : 1);
+          const angle =
+            Math.atan2(CY - b.y + rand(-30, 30), goalX - b.x) + err;
           this.kick(p, rand(500, 660), angle, rand(40, 170), 1);
           if (p.team === 0) this.stats.shots++;
         } else if (pressure < 95 && mates.length && Math.random() < 0.55) {
@@ -852,7 +796,6 @@ export class Game implements GameView {
       }
       speedF = 0.8;
     } else if (b.owner && b.owner.team === p.team) {
-      // teammate has it → offer support ahead
       if (p.aiT <= 0) {
         p.aiT = rand(0.4, 0.75);
         const off = p.id % 2 === 0 ? -150 : 150;
@@ -870,7 +813,6 @@ export class Game implements GameView {
         p.ty = clamp(lerp(b.y, CY, 0.42), 45, PITCH_H - 45);
       }
     } else {
-      // opponent has it
       const holder = b.owner!;
       if (p === chaser) {
         p.tx = holder.x; p.ty = holder.y;
@@ -882,10 +824,9 @@ export class Game implements GameView {
       }
     }
 
-    // move toward target
     const dx = p.tx - p.x, dy = p.ty - p.y;
     const d = Math.hypot(dx, dy);
-    const sp = p.baseSpeed * speedF * (p.team === 1 ? 1 : this.demo ? 0.92 : 1);
+    const sp = p.baseSpeed * speedF;
     if (d > 7) {
       const k = Math.min(1, dt * 7.5);
       p.vx += ((dx / d) * sp - p.vx) * k;
@@ -898,18 +839,17 @@ export class Game implements GameView {
 
   private gkUpdate(gk: PlayerT, dt: number) {
     const b = this.ball;
-    const dir = gk.team === 0 ? 1 : -1; // from own goal line toward the field
-    const goalX = gk.team === 0 ? 0 : PITCH_W;
-    const homeX = goalX + dir * 44;
+    const defRight = gk.team === 1;
+    const gx0 = defRight ? PITCH_W : 0;
+    const homeX = defRight ? PITCH_W - 44 : 44;
 
     if (b.owner === gk) {
       gk.aiT -= dt;
       gk.vx = 0; gk.vy = 0;
       if (gk.aiT <= 0) {
-        // punt toward the most advanced outfield teammate
         const mates = this.players.filter((q) => q.team === gk.team && !q.gk);
         const m = mates.reduce((a2, c) =>
-          dir === 1 ? (c.x > a2.x ? c : a2) : (c.x < a2.x ? c : a2)
+          defRight ? (c.x < a2.x ? c : a2) : (c.x > a2.x ? c : a2)
         );
         const angle = Math.atan2(m.y - b.y + rand(-40, 40), m.x - b.x);
         this.kick(gk, rand(430, 500), angle, rand(220, 300), 2);
@@ -919,42 +859,35 @@ export class Game implements GameView {
 
     let ty = clamp(b.y, CY - 88, CY + 88);
     let sp = 150;
+    const toward = defRight ? b.vx > 300 : b.vx < -300;
+    const distToGoal = defRight ? PITCH_W - b.x : b.x;
 
-    // track threatening balls (moving fast toward this goal)
-    const toGoal = dir === 1 ? -b.vx : b.vx;
-    if (toGoal > 300 && Math.abs(goalX - b.x) < 430 && !b.owner) {
-      const planeX = goalX + dir * 26;
-      const t = Math.abs(planeX - b.x) / Math.max(1, toGoal);
+    if (toward && distToGoal < 430 && !b.owner) {
+      const t = Math.max(0.05, (distToGoal - 26) / Math.abs(b.vx));
       const predY = b.y + b.vy * t;
       ty = clamp(predY, CY - GOAL_HALF + 10, CY + GOAL_HALF - 10);
       sp = 330;
 
-      // one save decision per shot, per keeper
-      if (!gk.shotFaced && Math.abs(goalX - b.x) < 120) {
+      if (!gk.shotFaced && distToGoal < 120) {
         gk.shotFaced = true;
         const speed = Math.hypot(b.vx, b.vy);
         const reach = Math.abs(gk.y - b.y) < 38 && b.z < 82;
-        // opponent keeper is beatable; the player's own keeper is reliable
-        const chance =
-          gk.team === 1
-            ? clamp(0.72 - (speed - 300) / 900, 0.14, 0.55)
-            : clamp(0.92 - (speed - 300) / 1000, 0.32, 0.8);
+        const chance = clamp(0.82 - (speed - 300) / 1000, 0.2, 0.68);
         if (reach && Math.random() < chance) {
-          b.vx = dir * (Math.abs(b.vx) * 0.22 + 130);
+          b.vx = (defRight ? -1 : 1) * (Math.abs(b.vx) * 0.22 + 130);
           b.vy = (Math.random() < 0.5 ? -1 : 1) * rand(150, 270);
           b.vz = rand(130, 230);
           b.freeT = 0.5;
           b.owner = null;
-          this.stats.saves++;
+          if (gk.team === 1) this.stats.saves++;
           this.spawnSparks(b.x, b.y, b.z);
           gk.lungeT = 0.3;
           sfx.save();
         }
       }
     }
-    if (toGoal <= 40) gk.shotFaced = false;
+    if (!toward) gk.shotFaced = false;
 
-    // pick up slow nearby balls
     if (
       !b.owner && b.freeT <= 0 &&
       dist(gk.x, gk.y, b.x, b.y) < 30 &&
@@ -976,10 +909,9 @@ export class Game implements GameView {
 
   private ballBoundsAndGoal(dt: number) {
     const b = this.ball;
-    if (b.owner) return; // a carried ball can never cross or score
+    if (b.owner) return;
     const inMouth = Math.abs(b.y - CY) < GOAL_HALF - 2 && b.z < 90;
 
-    // left goal (white scores here)
     if (b.x < 0) {
       if (inMouth) {
         if (b.x < -14 && this.phase !== 'goal') this.scored(1);
@@ -992,7 +924,6 @@ export class Game implements GameView {
         sfx.bounce(Math.abs(b.vx));
       }
     }
-    // right goal (blue scores here)
     if (b.x > PITCH_W) {
       if (inMouth) {
         if (b.x > PITCH_W + 14 && this.phase !== 'goal') this.scored(0);
@@ -1006,7 +937,6 @@ export class Game implements GameView {
       }
     }
 
-    // posts
     for (const gx of [0, PITCH_W])
       for (const py2 of [CY - GOAL_HALF, CY + GOAL_HALF]) {
         const d = dist(b.x, b.y, gx, py2);
@@ -1025,7 +955,6 @@ export class Game implements GameView {
         }
       }
 
-    // touchlines (arcade bounce)
     if (b.y < 2) {
       b.y = 2;
       b.vy = Math.abs(b.vy) * 0.55;
@@ -1038,7 +967,7 @@ export class Game implements GameView {
     }
   }
 
-  /* ---------------- particles & camera ---------------- */
+  /* ---------------- particles ---------------- */
 
   private updateParticles(dt: number) {
     for (const p of this.particles) {
@@ -1062,9 +991,7 @@ export class Game implements GameView {
       }
     }
     this.particles = this.particles.filter((p) => p.life > 0);
-    if (this.particles.length > 260) this.particles.splice(0, this.particles.length - 260);
+    if (this.particles.length > 260)
+      this.particles.splice(0, this.particles.length - 260);
   }
-
-  // No camera update: the full-pitch fit transform is computed in onResize
-  // and stays completely static during play.
 }

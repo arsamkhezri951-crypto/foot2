@@ -1,37 +1,17 @@
 import {
-  PITCH_W,
-  PITCH_H,
-  MARGIN,
-  WORLD_W,
-  WORLD_H,
   GOAL_HALF,
-  GOAL_DEPTH,
   CY,
+  MARGIN,
+  PITCH_H,
+  PITCH_W,
+  WORLD_H,
+  WORLD_W,
+  clamp,
   type GameView,
   type PlayerT,
 } from './types';
 
-const OX = MARGIN; // pitch origin in world space
-const OY = MARGIN;
-
-/* ================= STADIUM PRE-RENDER ================= */
-
-const CROWD_COLORS = [
-  '#41506e', '#5a4566', '#66504a', '#466355', '#665c48', '#48606b',
-  '#71576d', '#586473', '#7d6359', '#547058', '#6e4f5e', '#4f5e77',
-  '#8a6f62', '#61758a', '#935f74', '#5f8a77',
-];
-
-const ADS: [string, string][] = [
-  ['MAGIC AIR', '#3fc3ff'],
-  ['TURBO+', '#ffd23f'],
-  ['GOOAAL!', '#ff5fa2'],
-  ['VOLT COLA', '#7dffb0'],
-  ['SKY JET', '#ff8a5c'],
-  ['KICKERZ', '#8fb7ff'],
-  ['PULSE FM', '#f3ff7d'],
-  ['ORBIT', '#6ef3d6'],
-];
+const TAU = Math.PI * 2;
 
 function rr(
   ctx: CanvasRenderingContext2D,
@@ -41,750 +21,646 @@ function rr(
   h: number,
   r: number
 ) {
+  const rad = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.moveTo(x + rad, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rad);
+  ctx.arcTo(x + w, y + h, x, y + h, rad);
+  ctx.arcTo(x, y + h, x, y, rad);
+  ctx.arcTo(x, y, x + w, y, rad);
   ctx.closePath();
 }
 
-function mulberry(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+const CROWD_BASE = ['#39415a', '#4a5470', '#2e3550', '#5b6480', '#414b66', '#333c58'];
+const CROWD_ACCENT = ['#2f7dff', '#ff5fa2', '#e8edf7', '#ffd23f'];
+const BOARD_COLS = ['#d92e4b', '#1f7ae0', '#f2a007', '#0ea672', '#7a3ff2', '#c93a8e'];
+const BRANDS = ['NOVA', 'ZUMO', 'KIKO', 'VOLTA', 'ORBE', 'PIXEL', 'TURBO', 'AERO'];
 
+/* =====================================================================
+   Stadium layer — baked once, drawn every frame with a FIXED transform.
+   ===================================================================== */
 export function makeStadiumLayer(): HTMLCanvasElement {
+  const S = 2; // internal supersample for crispness
   const c = document.createElement('canvas');
-  c.width = WORLD_W;
-  c.height = WORLD_H;
+  c.width = WORLD_W * S;
+  c.height = WORLD_H * S;
   const ctx = c.getContext('2d')!;
-  const rnd = mulberry(20260214);
+  ctx.scale(S, S);
+  // work in world coords; pitch TL sits at (MARGIN, MARGIN)
+  ctx.translate(MARGIN, MARGIN);
 
-  // --- outer bowl ---
-  const bg = ctx.createLinearGradient(0, 0, 0, WORLD_H);
-  bg.addColorStop(0, '#0a1222');
-  bg.addColorStop(0.5, '#101b31');
-  bg.addColorStop(1, '#0a1222');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  /* night sky / stadium base */
+  const sky = ctx.createLinearGradient(0, -MARGIN, 0, WORLD_H - MARGIN);
+  sky.addColorStop(0, '#0c1a30');
+  sky.addColorStop(0.5, '#0a1426');
+  sky.addColorStop(1, '#070f1d');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-MARGIN, -MARGIN, WORLD_W, WORLD_H);
 
-  // stand tiers (concentric rounded rects)
-  const tiers = [
-    { d: 8, col: '#1b2740' },
-    { d: 46, col: '#223052' },
-    { d: 92, col: '#1a2540' },
-    { d: 140, col: '#243356' },
-    { d: 186, col: '#182340' },
-  ];
-  for (const t of tiers) {
-    ctx.fillStyle = t.col;
-    rr(ctx, t.d, t.d, WORLD_W - t.d * 2, WORLD_H - t.d * 2, 90);
-    ctx.fill();
-  }
+  /* stands = everything outside the pitch apron */
+  const apronPad = 26;
+  const ax = -apronPad, ay = -apronPad;
+  const aw = PITCH_W + apronPad * 2, ah = PITCH_H + apronPad * 2;
 
-  // --- crowd dots ---
-  const innerL = OX - 78,
-    innerT = OY - 78,
-    innerR = OX + PITCH_W + 78,
-    innerB = OY + PITCH_H + 78;
-  for (let y = 26; y < WORLD_H - 20; y += 11) {
-    for (let x = 26; x < WORLD_W - 20; x += 11) {
-      if (x > innerL && x < innerR && y > innerT && y < innerB) continue;
-      const col = CROWD_COLORS[(rnd() * CROWD_COLORS.length) | 0];
-      ctx.fillStyle = col;
-      ctx.globalAlpha = 0.5 + rnd() * 0.5;
-      const s = 3.2 + rnd() * 2.6;
-      ctx.beginPath();
-      ctx.arc(x + rnd() * 5, y + rnd() * 5, s, 0, Math.PI * 2);
-      ctx.fill();
+  // crowd dots across the stands (skip apron + pitch)
+  for (let y = -MARGIN + 10; y < WORLD_H - MARGIN - 6; y += 8) {
+    for (let x = -MARGIN + 8; x < WORLD_W - MARGIN - 4; x += 8) {
+      const inside = x > ax - 14 && x < ax + aw + 14 && y > ay - 14 && y < ay + ah + 14;
+      if (inside) continue;
+      const jx = x + (Math.random() - 0.5) * 3;
+      const jy = y + (Math.random() - 0.5) * 3;
+      const acc = Math.random() < 0.07;
+      ctx.fillStyle = acc
+        ? CROWD_ACCENT[(Math.random() * CROWD_ACCENT.length) | 0]
+        : CROWD_BASE[(Math.random() * CROWD_BASE.length) | 0];
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(jx, jy, 3.1, 3.1);
     }
   }
   ctx.globalAlpha = 1;
 
-  // walkway ring between crowd and ad boards
-  ctx.strokeStyle = '#0d1626';
-  ctx.lineWidth = 26;
-  rr(ctx, OX - 66, OY - 66, PITCH_W + 132, PITCH_H + 132, 26);
-  ctx.stroke();
+  // tier walkways
+  ctx.fillStyle = 'rgba(6,10,20,0.85)';
+  const walk = (wx: number, wy: number, ww: number, wh: number) =>
+    ctx.fillRect(wx, wy, ww, wh);
+  walk(-MARGIN, -MARGIN + 58, WORLD_W, 5);
+  walk(-MARGIN, WORLD_H - MARGIN - 63, WORLD_W, 5);
+  walk(-MARGIN, -MARGIN, 5, WORLD_H);
+  walk(WORLD_W - MARGIN - 5, -MARGIN, 5, WORLD_H);
+  // stand shading toward the pitch
+  const shadeT = ctx.createLinearGradient(0, ay - 40, 0, ay);
+  shadeT.addColorStop(0, 'rgba(0,0,0,0)');
+  shadeT.addColorStop(1, 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = shadeT;
+  ctx.fillRect(ax - 20, ay - 42, aw + 40, 42);
+  const shadeB = ctx.createLinearGradient(0, ay + ah, 0, ay + ah + 40);
+  shadeB.addColorStop(0, 'rgba(0,0,0,0.4)');
+  shadeB.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = shadeB;
+  ctx.fillRect(ax - 20, ay + ah, aw + 40, 42);
 
-  // --- pitch apron ---
-  ctx.fillStyle = '#1d6b3a';
-  rr(ctx, OX - 42, OY - 42, PITCH_W + 84, PITCH_H + 84, 18);
+  /* floodlights in the four corners */
+  for (const [lx, ly] of [
+    [-MARGIN + 46, -MARGIN + 40],
+    [WORLD_W - MARGIN - 46, -MARGIN + 40],
+    [-MARGIN + 46, WORLD_H - MARGIN - 40],
+    [WORLD_W - MARGIN - 46, WORLD_H - MARGIN - 40],
+  ]) {
+    const glow = ctx.createRadialGradient(lx, ly, 2, lx, ly, 110);
+    glow.addColorStop(0, 'rgba(210,230,255,0.32)');
+    glow.addColorStop(0.4, 'rgba(150,190,255,0.10)');
+    glow.addColorStop(1, 'rgba(150,190,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(lx - 110, ly - 110, 220, 220);
+    ctx.fillStyle = '#1b2438';
+    rr(ctx, lx - 16, ly - 8, 32, 13, 4);
+    ctx.fill();
+    ctx.fillStyle = '#e9f3ff';
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.arc(lx - 12 + i * 5, ly - 1.5, 1.9, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  /* pitch apron (runoff turf) */
+  ctx.fillStyle = '#1e7a3d';
+  rr(ctx, ax, ay, aw, ah, 10);
   ctx.fill();
 
-  // --- ad boards ---
-  const drawAdBoard = (
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    vertical: boolean
-  ) => {
-    ctx.fillStyle = '#0c1424';
-    rr(ctx, x, y, w, h, 7);
-    ctx.fill();
-    ctx.strokeStyle = '#24344f';
-    ctx.lineWidth = 2;
-    rr(ctx, x + 1.5, y + 1.5, w - 3, h - 3, 6);
-    ctx.stroke();
-    ctx.save();
-    ctx.font = '700 21px Rubik, sans-serif';
-    ctx.textBaseline = 'middle';
-    let i = 0;
-    if (!vertical) {
-      let tx = x + 26;
-      while (tx < x + w - 90) {
-        const [txt, col] = ADS[i++ % ADS.length];
-        ctx.fillStyle = col;
-        ctx.fillText(txt, tx, y + h / 2 + 1);
-        tx += ctx.measureText(txt).width + 56;
-      }
-    } else {
-      let ty = y + 30;
-      while (ty < y + h - 60) {
-        const [txt, col] = ADS[i++ % ADS.length];
-        ctx.save();
-        ctx.translate(x + w / 2, ty);
-        ctx.rotate(Math.PI / 2);
-        ctx.fillStyle = col;
-        ctx.textAlign = 'left';
-        ctx.fillText(txt, 0, 1);
-        ctx.restore();
-        ty += 26 * 4.4;
-      }
-    }
-    ctx.restore();
-  };
-  const bh = 30;
-  drawAdBoard(OX - 20, OY - 58, PITCH_W + 40, bh, false);
-  drawAdBoard(OX - 20, OY + PITCH_H + 28, PITCH_W + 40, bh, false);
-  drawAdBoard(OX - 58, OY - 10, bh, PITCH_H + 20, true);
-  drawAdBoard(OX + PITCH_W + 28, OY - 10, bh, PITCH_H + 20, true);
-
-  // --- pitch base + stripes ---
-  const px = OX,
-    py = OY;
-  const stripes = 10;
+  /* main turf with mow stripes */
+  const stripes = 12;
   const sw = PITCH_W / stripes;
   for (let i = 0; i < stripes; i++) {
-    const g = ctx.createLinearGradient(px + i * sw, 0, px + (i + 1) * sw, 0);
-    const baseA = i % 2 === 0 ? '#2f9e51' : '#2a9149';
-    const baseB = i % 2 === 0 ? '#2c964c' : '#278a45';
-    g.addColorStop(0, baseA);
-    g.addColorStop(0.5, baseB);
-    g.addColorStop(1, baseA);
-    ctx.fillStyle = g;
-    ctx.fillRect(px + i * sw, py, sw + 1, PITCH_H);
+    ctx.fillStyle = i % 2 === 0 ? '#2f9e51' : '#2b934b';
+    ctx.fillRect(i * sw, 0, sw + 1, PITCH_H);
+  }
+  // subtle light sweep
+  const sweep = ctx.createLinearGradient(0, 0, PITCH_W, PITCH_H);
+  sweep.addColorStop(0, 'rgba(255,255,255,0.055)');
+  sweep.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sweep.addColorStop(1, 'rgba(0,0,0,0.05)');
+  ctx.fillStyle = sweep;
+  ctx.fillRect(0, 0, PITCH_W, PITCH_H);
+  // grass specks
+  for (let i = 0; i < 1100; i++) {
+    ctx.fillStyle = Math.random() < 0.5 ? 'rgba(18,80,38,0.14)' : 'rgba(190,255,200,0.07)';
+    ctx.fillRect(Math.random() * PITCH_W, Math.random() * PITCH_H, 2, 2);
   }
 
-  // grass speckle texture
-  for (let i = 0; i < 5200; i++) {
-    const gx = px + rnd() * PITCH_W;
-    const gy = py + rnd() * PITCH_H;
-    ctx.fillStyle =
-      rnd() > 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,40,10,0.06)';
-    ctx.fillRect(gx, gy, 1.6 + rnd() * 2.2, 1.2 + rnd() * 1.6);
+  /* ad boards */
+  const board = (x: number, y: number, w: number, h: number, ci: number, label: string) => {
+    ctx.fillStyle = BOARD_COLS[ci % BOARD_COLS.length];
+    rr(ctx, x, y, w, h, 3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 9px Bungee, Rubik, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + w / 2, y + h / 2 + 0.5);
+  };
+  let bi = 0;
+  for (let x = -36; x < PITCH_W + 20; x += 104) {
+    board(x, -22, 96, 15, bi, BRANDS[bi % BRANDS.length]);
+    board(x + 40, PITCH_H + 7, 96, 15, bi + 3, BRANDS[(bi + 3) % BRANDS.length]);
+    bi++;
+  }
+  for (let y = CY - 200; y < CY + 160; y += 104) {
+    board(-50, y, 15, 96, bi, '');
+    board(PITCH_W + 35, y + 40, 15, 96, bi + 2, '');
+    bi++;
   }
 
-  // soft center light pool
-  const pool = ctx.createRadialGradient(
-    px + PITCH_W / 2,
-    py + PITCH_H / 2,
-    60,
-    px + PITCH_W / 2,
-    py + PITCH_H / 2,
-    720
-  );
-  pool.addColorStop(0, 'rgba(255,255,240,0.10)');
-  pool.addColorStop(1, 'rgba(0,0,20,0.16)');
-  ctx.fillStyle = pool;
-  ctx.fillRect(px - 42, py - 42, PITCH_W + 84, PITCH_H + 84);
-
-  // --- pitch markings ---
+  /* pitch markings */
   ctx.strokeStyle = 'rgba(255,255,255,0.92)';
   ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  const L = px,
-    R = px + PITCH_W,
-    T = py,
-    B = py + PITCH_H;
-  ctx.strokeRect(L, T, PITCH_W, PITCH_H);
-  // halfway
+  ctx.strokeRect(0, 0, PITCH_W, PITCH_H);
   ctx.beginPath();
-  ctx.moveTo(px + PITCH_W / 2, T);
-  ctx.lineTo(px + PITCH_W / 2, B);
+  ctx.moveTo(PITCH_W / 2, 0);
+  ctx.lineTo(PITCH_W / 2, PITCH_H);
   ctx.stroke();
-  // center circle + spot
   ctx.beginPath();
-  ctx.arc(px + PITCH_W / 2, py + CY, 91, 0, Math.PI * 2);
+  ctx.arc(PITCH_W / 2, CY, 78, 0, TAU);
   ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.beginPath();
-  ctx.arc(px + PITCH_W / 2, py + CY, 4.5, 0, Math.PI * 2);
+  ctx.arc(PITCH_W / 2, CY, 3.4, 0, TAU);
   ctx.fill();
-  // boxes + arcs on both sides
-  const box = (side: number) => {
-    const gx = side < 0 ? L : R;
-    const d = side < 0 ? 1 : -1;
+
+  const box = (gx: number, dir: 1 | -1) => {
     // penalty area
     ctx.strokeRect(
-      Math.min(gx, gx + d * 165),
-      py + CY - 201,
-      165,
-      402
+      dir === 1 ? gx : gx - 150,
+      CY - 190,
+      150,
+      380
     );
     // goal area
-    ctx.strokeRect(Math.min(gx, gx + d * 55), py + CY - 91, 55, 182);
+    ctx.strokeRect(dir === 1 ? gx : gx - 55, CY - 95, 55, 190);
     // penalty spot
     ctx.beginPath();
-    ctx.arc(gx + d * 110, py + CY, 4, 0, Math.PI * 2);
+    ctx.arc(gx + dir * 105, CY, 3.2, 0, TAU);
     ctx.fill();
-    // penalty arc
+    // penalty arc (portion outside the box)
+    const a = Math.acos(45 / 78);
     ctx.beginPath();
-    const a0 = side < 0 ? -1.12 : Math.PI - 1.12;
-    ctx.arc(gx + d * 110, py + CY, 91, a0, a0 + 2.24);
+    if (dir === 1) ctx.arc(gx + 105, CY, 78, -a, a);
+    else ctx.arc(gx - 105, CY, 78, Math.PI - a, Math.PI + a);
     ctx.stroke();
     // corner arcs
-    ctx.beginPath();
-    ctx.arc(
-      gx,
-      T,
-      12,
-      side < 0 ? 0 : Math.PI / 2,
-      side < 0 ? Math.PI / 2 : Math.PI
-    );
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(
-      gx,
-      B,
-      12,
-      side < 0 ? -Math.PI / 2 : Math.PI,
-      side < 0 ? 0 : Math.PI * 1.5
-    );
-    ctx.stroke();
+    for (const cy2 of [0, PITCH_H]) {
+      ctx.beginPath();
+      ctx.arc(gx, cy2, 12, dir === 1 ? Math.PI / 2 : Math.PI, dir === 1 ? Math.PI : Math.PI * 1.5);
+      ctx.stroke();
+    }
   };
-  box(-1);
-  box(1);
+  box(0, 1);
+  box(PITCH_W, -1);
 
-  // subtle pitch vignette
-  const pv = ctx.createRadialGradient(
-    px + PITCH_W / 2,
-    py + PITCH_H / 2,
-    300,
-    px + PITCH_W / 2,
-    py + PITCH_H / 2,
-    900
+  /* vignette */
+  const vig = ctx.createRadialGradient(
+    PITCH_W / 2, CY, 240,
+    PITCH_W / 2, CY, 820
   );
-  pv.addColorStop(0, 'rgba(0,0,0,0)');
-  pv.addColorStop(1, 'rgba(0,10,4,0.22)');
-  ctx.fillStyle = pv;
-  ctx.fillRect(px - 42, py - 42, PITCH_W + 84, PITCH_H + 84);
-
-  // --- floodlight towers + glow ---
-  const towers: [number, number][] = [
-    [60, 60],
-    [WORLD_W - 60, 60],
-    [60, WORLD_H - 60],
-    [WORLD_W - 60, WORLD_H - 60],
-  ];
-  for (const [tx, ty] of towers) {
-    const glow = ctx.createRadialGradient(tx, ty, 10, tx, ty, 360);
-    glow.addColorStop(0, 'rgba(210,235,255,0.20)');
-    glow.addColorStop(1, 'rgba(210,235,255,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(tx - 360, ty - 360, 720, 720);
-    ctx.fillStyle = '#2c3a55';
-    ctx.fillRect(tx - 4, ty - 4, 8, 8);
-    ctx.fillStyle = '#3d4f73';
-    rr(ctx, tx - 26, ty - 18, 52, 36, 8);
-    ctx.fill();
-    for (let r = 0; r < 2; r++)
-      for (let i = 0; i < 4; i++) {
-        ctx.fillStyle = '#eaf6ff';
-        ctx.beginPath();
-        ctx.arc(tx - 18 + i * 12, ty - 8 + r * 16, 4.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-  }
-
-  // roof edge highlight
-  ctx.strokeStyle = 'rgba(120,160,220,0.16)';
-  ctx.lineWidth = 6;
-  rr(ctx, 5, 5, WORLD_W - 10, WORLD_H - 10, 96);
-  ctx.stroke();
+  vig.addColorStop(0, 'rgba(4,8,18,0)');
+  vig.addColorStop(1, 'rgba(4,8,18,0.55)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(-MARGIN, -MARGIN, WORLD_W, WORLD_H);
 
   return c;
 }
 
-/* ================= DYNAMIC DRAWING ================= */
-
-const px = (x: number) => OX + x; // world pitch coords -> layer coords
-const py = (y: number) => OY + y;
-
-function netOffset(
-  view: GameView,
-  side: number,
-  wx: number,
-  wy: number
-): number {
-  const rip = view.netRipple;
-  if (rip.amt <= 0.01 || rip.side !== side) return 0;
-  const gx = side < 0 ? 0 : PITCH_W;
-  const d = Math.hypot(wx - gx, wy - rip.y);
-  return (
-    Math.sin(d * 0.12 - view.tGlobal * 26) *
-    7 *
-    rip.amt *
-    Math.exp(-d * 0.02)
-  );
-}
-
-export function drawGoalNet(ctx: CanvasRenderingContext2D, view: GameView, side: number) {
-  const gx = px(side < 0 ? 0 : PITCH_W);
-  const back = gx + side * GOAL_DEPTH;
-  const y1 = py(CY - GOAL_HALF);
-  const y2 = py(CY + GOAL_HALF);
-  const h = 30; // visual height of the frame
-  const shrink = 0.8;
-  const by1 = py(CY - GOAL_HALF * shrink) - h * 0.4;
-  const by2 = py(CY + GOAL_HALF * shrink) - h * 0.4;
-
-  ctx.save();
-  ctx.strokeStyle = 'rgba(235,242,255,0.5)';
-  ctx.lineWidth = 1;
-
-  const N = 6;
-  // depth lines (floor -> roof)
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const my = y1 + (y2 - y1) * t;
-    const byy = by1 + (by2 - by1) * t;
-    const off = netOffset(view, side, side < 0 ? -GOAL_DEPTH * t : GOAL_DEPTH * t, CY - GOAL_HALF + GOAL_HALF * 2 * t);
-    ctx.beginPath();
-    ctx.moveTo(gx, my);
-    ctx.quadraticCurveTo(
-      gx + side * GOAL_DEPTH * 0.5,
-      (my + byy) / 2 + off,
-      back,
-      byy + off * 0.5
-    );
-    ctx.stroke();
-  }
-  // cross rings
-  const M = 5;
-  for (let j = 1; j <= M; j++) {
-    const t = j / M;
-    const cx = gx + side * GOAL_DEPTH * t;
-    const cy1 = y1 + (by1 - y1) * t;
-    const cy2 = y2 + (by2 - y2) * t;
-    const off = netOffset(view, side, side * GOAL_DEPTH * t, CY);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy1 + off);
-    ctx.quadraticCurveTo(cx + side * 4, (cy1 + cy2) / 2 + off * 1.4, cx, cy2 + off);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-export function drawGoalFrame(ctx: CanvasRenderingContext2D, side: number) {
-  const gx = px(side < 0 ? 0 : PITCH_W);
-  const y1 = py(CY - GOAL_HALF);
-  const y2 = py(CY + GOAL_HALF);
-  const h = 30;
-  ctx.save();
-  ctx.lineCap = 'round';
-  // supports to back
-  ctx.strokeStyle = 'rgba(220,230,245,0.55)';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(gx, y1 - h);
-  ctx.lineTo(gx + side * GOAL_DEPTH, y1 + (py(CY - GOAL_HALF * 0.8) - h * 0.4 - y1));
-  ctx.moveTo(gx, y2 - h);
-  ctx.lineTo(gx + side * GOAL_DEPTH, y2 + (py(CY + GOAL_HALF * 0.8) - h * 0.4 - y2));
-  ctx.stroke();
-  // posts + crossbar
-  const grad = ctx.createLinearGradient(gx - 3, 0, gx + 3, 0);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(1, '#c9d6ea');
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(gx, y1);
-  ctx.lineTo(gx, y1 - h);
-  ctx.moveTo(gx, y2);
-  ctx.lineTo(gx, y2 - h);
-  ctx.stroke();
-  ctx.lineWidth = 5.5;
-  ctx.beginPath();
-  ctx.moveTo(gx, y1 - h);
-  ctx.lineTo(gx, y2 - h);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/* ---------- players ---------- */
-
-interface Kit {
-  shirt1: string;
-  shirt2: string;
-  sleeve: string;
-  shorts: string;
-  socks: string;
-}
-const KITS: Kit[] = [
-  { shirt1: '#3f86ff', shirt2: '#1250c8', sleeve: '#1250c8', shorts: '#0d3f9e', socks: '#2f6fe0' },
-  { shirt1: '#ffffff', shirt2: '#dde3ef', sleeve: '#ff5fa2', shorts: '#333a4d', socks: '#f2f4f9' },
-];
-// distinct keeper kits so each goalmouth reads instantly:
-// blue team keeper = orange, white team keeper = yellow
-const GK_KITS: [Kit, Kit] = [
-  { shirt1: '#ff9838', shirt2: '#dd6410', sleeve: '#d95f0e', shorts: '#23262f', socks: '#ffb057' },
-  { shirt1: '#ffd84d', shirt2: '#eda912', sleeve: '#e09a08', shorts: '#20242f', socks: '#f2b705' },
-];
-
-export function drawPlayer(
-  ctx: CanvasRenderingContext2D,
-  p: PlayerT,
-  view: GameView
-) {
-  const x = px(p.x);
-  const t = view.tGlobal;
-  const speed = Math.hypot(p.vx, p.vy);
-  const amp = Math.min(1, speed / 230);
-  const s = Math.sin(p.runPhase);
-  const faceR = Math.cos(p.dir) >= 0 ? 1 : -1;
-  const kit = p.gk ? GK_KITS[p.team] : KITS[p.team];
-  const celebrating = p.celebrateT > 0;
-  const jump = celebrating
-    ? Math.abs(Math.sin(t * 11 + p.id)) * 13 * Math.min(1, p.celebrateT)
-    : 0;
-  const bob = Math.abs(Math.cos(p.runPhase)) * 1.4 * amp;
-  const y = py(p.y) - jump;
-  const isActive = !view.demo && p.id === view.activeId;
-
-  // ---- glow + shadow ----
-  if (isActive) {
-    const pulse = 0.5 + Math.sin(t * 5) * 0.2;
-    ctx.fillStyle = `rgba(72,164,255,${0.22 * pulse + 0.1})`;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 3, 21, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (p.hasBallGlow > 0.02) {
-    ctx.fillStyle = `rgba(255,255,255,${0.12 * p.hasBallGlow})`;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 3, 18, 8.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = `rgba(6,20,10,${0.3 - jump * 0.012})`;
-  ctx.beginPath();
-  ctx.ellipse(x + 4, py(p.y) + 4, 15 + jump * 0.25, 6.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const hipY = y - 18 + bob;
-  const kick = p.kickT > 0 ? Math.sin(Math.min(1, 1 - p.kickT / 0.32) * Math.PI) : 0;
-  const kickDirX = Math.cos(p.dir);
-  const lunge = p.lungeT > 0 ? Math.sin(Math.min(1, 1 - p.lungeT / 0.3) * Math.PI) : 0;
-
-  const footPos = (legSign: number): [number, number] => {
-    if (kick > 0 && legSign > 0) {
-      return [
-        x + kickDirX * (9 + 16 * kick) * Math.abs(Math.cos(p.dir)) + kickDirX * 4,
-        y - 2 - 9 * kick,
-      ];
-    }
-    const sw = s * legSign * 9.5 * amp + lunge * legSign * 6;
-    const lift = Math.max(0, s * legSign) * 7 * amp;
-    return [x + sw, y - lift];
-  };
-
-  // ---- legs (behind body) ----
-  ctx.lineCap = 'round';
-  for (const legSign of [1, -1]) {
-    const [fx, fy] = footPos(legSign);
-    const hx = x + legSign * 3.4;
-    ctx.strokeStyle = kit.socks;
-    ctx.lineWidth = 4.6;
-    ctx.beginPath();
-    ctx.moveTo(hx, hipY);
-    ctx.quadraticCurveTo(hx + (fx - hx) * 0.3, (hipY + fy) / 2 + 2, fx, fy - 2.5);
-    ctx.stroke();
-    // boot
-    ctx.fillStyle = '#161b26';
-    ctx.beginPath();
-    ctx.ellipse(fx + faceR * 1.6, fy - 1.2, 4.2, 2.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // ---- shorts ----
-  ctx.fillStyle = kit.shorts;
-  rr(ctx, x - 8, hipY - 8, 16, 10.5, 4);
-  ctx.fill();
-
-  // ---- arms ----
-  const armSwing = celebrating ? -14 : s * 7 * amp;
-  for (const armSign of [1, -1]) {
-    const shX = x + armSign * 8.4;
-    const shY = hipY - 15;
-    const hx2 = shX + armSign * 3 - armSwing * armSign * 0.5 + faceR * 2;
-    const hy2 = celebrating ? shY - 13 : shY + 11 - Math.abs(armSwing) * 0.2;
-    ctx.strokeStyle = kit.sleeve;
-    ctx.lineWidth = 4.2;
-    ctx.beginPath();
-    ctx.moveTo(shX, shY);
-    ctx.lineTo(hx2, hy2);
-    ctx.stroke();
-    ctx.fillStyle = p.gk ? '#f5f7fa' : '#e8b98d';
-    ctx.beginPath();
-    ctx.arc(hx2, hy2 + (celebrating ? -2 : 1.5), 2.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // ---- torso ----
-  const tg = ctx.createLinearGradient(x - 9, 0, x + 9, 0);
-  tg.addColorStop(0, kit.shirt1);
-  tg.addColorStop(1, kit.shirt2);
-  ctx.fillStyle = tg;
-  rr(ctx, x - 9, hipY - 24, 18, 18, 6);
-  ctx.fill();
-  // collar
-  ctx.fillStyle = p.team === 1 && !p.gk ? '#ff5fa2' : 'rgba(255,255,255,0.85)';
-  rr(ctx, x - 3.4, hipY - 24, 6.8, 3, 1.5);
-  ctx.fill();
-  // number
-  ctx.fillStyle = p.team === 0 ? '#eaf2ff' : '#3a4157';
-  ctx.font = '8px Bungee, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(p.num), x, hipY - 14);
-
-  // ---- head ----
-  const headY = hipY - 30.5 - bob * 0.4;
-  ctx.fillStyle = p.skin;
-  ctx.beginPath();
-  ctx.arc(x, headY, 6.6, 0, Math.PI * 2);
-  ctx.fill();
-  // hair
-  ctx.fillStyle = p.hair;
-  ctx.beginPath();
-  ctx.arc(x - faceR * 0.6, headY - 1.4, 6.4, Math.PI * 0.95, Math.PI * 2.05);
-  ctx.fill();
-  if (p.gk) {
-    // keeper cap
-    ctx.fillStyle = '#20242f';
-    ctx.beginPath();
-    ctx.arc(x, headY - 2.2, 6.2, Math.PI, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x - 6.2, headY - 2.6, 12.4, 2.2);
-  }
-
-  // ---- active indicator ----
-  if (isActive) {
-    const bounce = Math.sin(t * 6) * 3;
-    ctx.fillStyle = '#5db2ff';
-    ctx.beginPath();
-    ctx.moveTo(x, headY - 13 + bounce);
-    ctx.lineTo(x - 7, headY - 23 + bounce);
-    ctx.lineTo(x + 7, headY - 23 + bounce);
-    ctx.closePath();
-    ctx.fill();
-    ctx.font = '8px Bungee, sans-serif';
-    ctx.fillStyle = 'rgba(230,242,255,0.95)';
-    ctx.fillText('YOU', x, headY - 29 + bounce);
-  }
-}
-
-/* ---------- ball ---------- */
-
-export function drawBall(ctx: CanvasRenderingContext2D, view: GameView) {
-  const b = view.ball;
-  const x = px(b.x);
-  const gy = py(b.y);
-  const zr = Math.max(0, b.z);
-  const r = 8.6 * (1 + zr / 900);
-
-  // shadow
-  ctx.fillStyle = `rgba(6,20,10,${0.32 * Math.max(0.25, 1 - zr / 260)})`;
-  ctx.beginPath();
-  ctx.ellipse(x + 3, gy + 3.5, 8 * (1 - zr / 700), 3.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const y = gy - 4 - zr * 0.55;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(b.spin);
-  ctx.fillStyle = '#fdfdfd';
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fill();
-  // panel shading
-  const sh = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.2, 0, 0, r);
-  sh.addColorStop(0, 'rgba(255,255,255,0.9)');
-  sh.addColorStop(1, 'rgba(120,132,150,0.45)');
-  ctx.fillStyle = sh;
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fill();
-  // black patches
-  ctx.fillStyle = '#14171f';
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    ctx.moveTo(Math.cos(a) * r * 0.52 + r * 0.2, Math.sin(a) * r * 0.52);
-    ctx.arc(Math.cos(a) * r * 0.52, Math.sin(a) * r * 0.52, r * 0.24, 0, Math.PI * 2);
-  }
-  ctx.fill();
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + Math.PI / 5;
-    ctx.moveTo(Math.cos(a) * r * 1.02 + r * 0.16, Math.sin(a) * r * 1.02);
-    ctx.arc(Math.cos(a) * r, Math.sin(a) * r, r * 0.16, 0, Math.PI * 2);
-  }
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(20,24,32,0.5)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, 0, r - 0.5, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/* ---------- particles ---------- */
-
-export function drawParticles(ctx: CanvasRenderingContext2D, view: GameView) {
-  for (const p of view.particles) {
-    const a = Math.max(0, p.life / p.maxLife);
-    const x = px(p.x);
-    const y = py(p.y) - p.z;
-    if (p.kind === 'confetti') {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(p.rot);
-      ctx.globalAlpha = a;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
-      ctx.restore();
-    } else {
-      ctx.globalAlpha = a * (p.kind === 'spark' ? 0.95 : 0.5);
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(x, y, p.size * (p.kind === 'dust' ? 1 + (1 - a) * 1.6 : a), 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-/* ---------- main frame ---------- */
-
+/* =====================================================================
+   Per-frame rendering — the camera transform is FIXED. It depends only
+   on viewport size, never on ball / player positions.
+   ===================================================================== */
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
-  view: GameView,
-  cw: number,
-  ch: number,
+  g: GameView,
+  vw: number,
+  vh: number,
   dpr: number,
   stadium: HTMLCanvasElement
 ) {
-  // ---- FIXED camera: one static fit-transform, identical every frame ----
-  const v = view.view;
+  const FIT_PAD = 26; // guaranteed empty space around the whole stadium
+  const scale = Math.min(vw / (WORLD_W + FIT_PAD), vh / (WORLD_H + FIT_PAD));
+  const ox = (vw - scale * WORLD_W) / 2;
+  const oy = (vh - scale * WORLD_H) / 2;
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  /* screen backdrop */
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const bg = ctx.createLinearGradient(0, 0, 0, vh);
+  bg.addColorStop(0, '#0b1a30');
+  bg.addColorStop(1, '#040912');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, vw, vh);
 
-  // deep night backdrop + ambient stadium glow bleeding into the letterbox
-  ctx.fillStyle = '#04070d';
-  ctx.fillRect(0, 0, cw * dpr, ch * dpr);
-  const glowL = ctx.createRadialGradient(0, ch * dpr * 0.5, 10, 0, ch * dpr * 0.5, cw * dpr * 0.45);
-  glowL.addColorStop(0, 'rgba(31,110,242,0.16)');
-  glowL.addColorStop(1, 'rgba(31,110,242,0)');
-  ctx.fillStyle = glowL;
-  ctx.fillRect(0, 0, cw * dpr, ch * dpr);
-  const glowR = ctx.createRadialGradient(cw * dpr, ch * dpr * 0.5, 10, cw * dpr, ch * dpr * 0.5, cw * dpr * 0.45);
-  glowR.addColorStop(0, 'rgba(255,95,162,0.14)');
-  glowR.addColorStop(1, 'rgba(255,95,162,0)');
-  ctx.fillStyle = glowR;
-  ctx.fillRect(0, 0, cw * dpr, ch * dpr);
+  /* FIXED world transform (pitch coords; never moves) */
+  ctx.setTransform(
+    dpr * scale, 0, 0, dpr * scale,
+    dpr * (ox + scale * MARGIN),
+    dpr * (oy + scale * MARGIN)
+  );
 
-  ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.ox, dpr * v.oy);
+  ctx.drawImage(stadium, -MARGIN, -MARGIN, WORLD_W, WORLD_H);
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(stadium, 0, 0);
+  drawGoals(ctx, g);
 
-  drawGoalNet(ctx, view, -1);
-  drawGoalNet(ctx, view, 1);
-
-  // cross target marker
-  if (view.crossMark && view.crossMark.t > 0) {
-    const m = view.crossMark;
-    const a = Math.min(1, m.t * 2);
-    ctx.strokeStyle = `rgba(125,255,176,${0.7 * a})`;
+  /* cross target marker */
+  if (g.crossMark) {
+    const m = g.crossMark;
+    const pulse = 1 + Math.sin(g.tGlobal * 14) * 0.12;
+    ctx.strokeStyle = `rgba(125,220,255,${clamp(m.t, 0, 1) * 0.9})`;
     ctx.lineWidth = 2.5;
-    ctx.setLineDash([7, 6]);
     ctx.beginPath();
-    ctx.arc(px(m.x), py(m.y), 16 + (1 - a) * 22, 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, 13 * pulse, 0, TAU);
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 5, 0, TAU);
+    ctx.stroke();
   }
 
-  // charge ring around active player
-  if (view.chargeFrac > 0.02) {
-    const act = view.players.find((p) => p.id === view.activeId);
-    if (act) {
-      const frac = view.chargeFrac;
-      ctx.strokeStyle = frac < 0.5 ? '#7dffb0' : frac < 0.8 ? '#ffd23f' : '#ff6b6b';
-      ctx.lineWidth = 4;
+  /* ball trail */
+  for (const t of g.trail) {
+    ctx.fillStyle = `rgba(255,255,255,${0.22 * t.life})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y - t.z * 0.9, 5 * t.life, 0, TAU);
+    ctx.fill();
+  }
+
+  /* entity shadows */
+  const b = g.ball;
+  ctx.fillStyle = 'rgba(8,26,14,0.30)';
+  for (const p of g.players) {
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 3.4, 12.4, 5, 0, 0, TAU);
+    ctx.fill();
+  }
+  const bs = clamp(1 - b.z / 220, 0.35, 1);
+  ctx.fillStyle = `rgba(8,26,14,${0.32 * bs})`;
+  ctx.beginPath();
+  ctx.ellipse(b.x, b.y + 2.6, 8.2 * bs + 2, 3.4 * bs + 0.9, 0, 0, TAU);
+  ctx.fill();
+
+  /* players sorted by y */
+  const sorted = [...g.players].sort((p, q) => p.y - q.y);
+  for (const p of sorted) drawPlayer(ctx, p, g);
+
+  /* shot-charge ring around the active player */
+  if (!g.demo && g.chargeFrac > 0.01) {
+    const a = g.players[g.activeId];
+    if (a) {
+      ctx.lineWidth = 3.4;
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
       ctx.beginPath();
-      ctx.arc(px(act.x), py(act.y) - 2, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      ctx.ellipse(a.x, a.y + 3, 20, 8.4, 0, 0, TAU);
+      ctx.stroke();
+      const frac = g.chargeFrac;
+      const col =
+        frac < 0.5 ? '#ffd23f' : frac < 0.8 ? '#ff9a3f' : '#ff5f5f';
+      ctx.strokeStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(
+        a.x, a.y + 3, 20, 8.4, 0,
+        -Math.PI / 2, -Math.PI / 2 + frac * TAU
+      );
       ctx.stroke();
     }
   }
 
-  // entities sorted by depth
-  const ball = view.ball;
-  const ents: { y: number; kind: 'p' | 'b'; p?: PlayerT }[] = view.players.map(
-    (p) => ({ y: p.y, kind: 'p' as const, p })
-  );
-  ents.push({ y: ball.y, kind: 'b' as const });
-  ents.sort((a, b2) => a.y - b2.y);
-  for (const e of ents) {
-    if (e.kind === 'p') drawPlayer(ctx, e.p!, view);
-    else drawBall(ctx, view);
+  drawBall(ctx, g);
+  drawParticles(ctx, g);
+}
+
+/* ---------------- goals + nets ---------------- */
+function drawGoals(ctx: CanvasRenderingContext2D, g: GameView) {
+  for (const side of [-1, 1] as const) {
+    const gx = side === -1 ? 0 : PITCH_W;
+    const back = gx + side * -32; // net depth (outward)
+    const ripple = g.netRipple.side === side ? g.netRipple.amt : 0;
+
+    /* net */
+    ctx.lineWidth = 1;
+    const top = CY - GOAL_HALF, bot = CY + GOAL_HALF;
+    for (let i = 0; i <= 8; i++) {
+      const yy = top + ((bot - top) * i) / 8;
+      const wob = ripple > 0
+        ? Math.sin(yy * 0.16 + g.tGlobal * 26) * 5 * ripple
+        : 0;
+      ctx.strokeStyle = 'rgba(235,242,255,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(gx, yy);
+      ctx.quadraticCurveTo(
+        (gx + back) / 2 + side * -wob * 0.4, yy + wob * 0.3,
+        back + wob * 0.6, yy
+      );
+      ctx.stroke();
+    }
+    for (let i = 0; i <= 6; i++) {
+      const xx = gx + ((back - gx) * i) / 6;
+      ctx.strokeStyle = 'rgba(235,242,255,0.38)';
+      ctx.beginPath();
+      ctx.moveTo(xx, top);
+      ctx.lineTo(xx, bot);
+      ctx.stroke();
+    }
+    // net roof hint
+    ctx.strokeStyle = 'rgba(235,242,255,0.55)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(gx, top);
+    ctx.lineTo(back, top);
+    ctx.lineTo(back, bot);
+    ctx.lineTo(gx, bot);
+    ctx.stroke();
+
+    /* posts (mini 3D: post rises from the ground) */
+    const postH = 30;
+    for (const py of [top, bot]) {
+      const grad = ctx.createLinearGradient(gx - 3, 0, gx + 3, 0);
+      grad.addColorStop(0, '#f4f7fb');
+      grad.addColorStop(0.5, '#ffffff');
+      grad.addColorStop(1, '#c3ccd8');
+      ctx.fillStyle = grad;
+      rr(ctx, gx - 2.6, py - postH, 5.2, postH + 2, 2.4);
+      ctx.fill();
+      // base pad
+      ctx.fillStyle = '#dfe6ee';
+      ctx.beginPath();
+      ctx.ellipse(gx, py + 2, 4.6, 2, 0, 0, TAU);
+      ctx.fill();
+    }
+    // crossbar joining the two post tops (seen head-on in the 2.5D view)
+    const bar = ctx.createLinearGradient(0, top - postH - 3, 0, top - postH + 3);
+    bar.addColorStop(0, '#ffffff');
+    bar.addColorStop(1, '#c3ccd8');
+    ctx.fillStyle = bar;
+    rr(ctx, gx - 3, top - postH - 3, 6, 6, 2.6);
+    ctx.fill();
+    rr(ctx, gx - 3, bot - postH - 3, 6, 6, 2.6);
+    ctx.fill();
+  }
+}
+
+/* ---------------- players ---------------- */
+const KITS = {
+  blue: { shirt1: '#4d97ff', shirt2: '#1b5fd6', trim: '#eaf2ff', shorts: '#123e8c', socks: '#1b5fd6', num: '#eaf2ff', sleeve: '#2b6fe8' },
+  white: { shirt1: '#ffffff', shirt2: '#dde3ee', trim: '#ff5fa2', shorts: '#ff5fa2', socks: '#f2f5fb', num: '#2a3049', sleeve: '#ff5fa2' },
+  /* BLUE keeper — emerald, clearly one of ours */
+  gkB: { shirt1: '#4fe08f', shirt2: '#129a52', trim: '#0b3d22', shorts: '#0e4026', socks: '#17b45f', num: '#0b3d22', sleeve: '#25c46d', cap: '#0b3d22' },
+  /* WHITE/PINK keeper — amber */
+  gkY: { shirt1: '#ffe14d', shirt2: '#e8a80c', trim: '#20242f', shorts: '#232936', socks: '#e8a80c', num: '#20242f', sleeve: '#f5c518', cap: '#20242f' },
+};
+
+function drawPlayer(ctx: CanvasRenderingContext2D, p: PlayerT, g: GameView) {
+  const t = g.tGlobal;
+  const speed = Math.hypot(p.vx, p.vy);
+  const moving = speed > 25;
+  const kit = p.gk
+    ? p.team === 0
+      ? KITS.gkB
+      : KITS.gkY
+    : p.team === 0
+      ? KITS.blue
+      : KITS.white;
+  const x = p.x;
+
+  const bounce = p.celebrateT > 0 ? Math.abs(Math.sin(t * 11 + p.id)) * 6 : 0;
+  const bob = moving ? Math.abs(Math.sin(p.runPhase)) * 1.5 : Math.sin(t * 2 + p.id) * 0.5;
+  const hipY = p.y - 15 - bob - bounce;
+  const face = Math.cos(p.dir) >= 0 ? 1 : -1;
+  const lean = p.lungeT > 0 ? p.lungeT * 0.9 : 0;
+
+  ctx.save();
+  ctx.translate(0, -bounce * 0.2);
+
+  /* ball-holder / active glow */
+  if (p.hasBallGlow > 0.02 || p.id === g.activeId) {
+    const a = p.id === g.activeId ? 0.5 + Math.sin(t * 6) * 0.15 : 0;
+    if (p.id === g.activeId) {
+      ctx.strokeStyle = `rgba(93,178,255,${a})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.ellipse(x, p.y + 3, 16 + Math.sin(t * 6) * 1.6, 6.8, 0, 0, TAU);
+      ctx.stroke();
+    }
+    if (p.hasBallGlow > 0.02) {
+      ctx.fillStyle = `rgba(140,255,190,${0.16 * p.hasBallGlow})`;
+      ctx.beginPath();
+      ctx.ellipse(x, p.y + 3, 13, 5.6, 0, 0, TAU);
+      ctx.fill();
+    }
   }
 
-  // ball trail (over entities, subtle)
-  for (const tr of view.trail) {
-    const a = tr.life * 0.35;
-    ctx.fillStyle = `rgba(255,255,255,${a})`;
+  /* legs — feet stay planted on the grass */
+  const legSwing = moving ? Math.sin(p.runPhase) : 0;
+  const px = Math.cos(p.dir), py2 = Math.sin(p.dir);
+  const nx = -py2, ny = px; // perpendicular
+  const kick = p.kickT > 0 ? Math.sin((1 - p.kickT / 0.32) * Math.PI) : 0;
+
+  const foot = (i: number) => {
+    let fx = x + nx * (i === 0 ? -3.6 : 3.6) + px * legSwing * (i === 0 ? 5.5 : -5.5);
+    let fy = p.y + py2 * legSwing * (i === 0 ? 4 : -4) * 0.6;
+    if (kick > 0 && i === 0) {
+      fx = x + px * (6 + kick * 13);
+      fy = p.y + py2 * (4 + kick * 9) - kick * 4;
+    }
+    if (lean > 0 && i === 1) {
+      fx = x + px * (5 + lean * 14);
+      fy = p.y + py2 * 4;
+    }
+    return [fx, fy] as const;
+  };
+
+  ctx.lineCap = 'round';
+  for (const i of [0, 1]) {
+    const [fx, fy] = foot(i);
+    // leg
+    ctx.strokeStyle = kit.shorts === '#232936' ? '#1c2230' : kit.shorts;
+    ctx.lineWidth = 4.6;
     ctx.beginPath();
-    ctx.arc(px(tr.x), py(tr.y) - 4 - tr.z * 0.55, 6 * tr.life + 2, 0, Math.PI * 2);
+    ctx.moveTo(x + nx * (i === 0 ? -3 : 3), hipY + 6);
+    ctx.lineTo(fx, fy - 3.4);
+    ctx.stroke();
+    // sock
+    ctx.strokeStyle = kit.socks;
+    ctx.lineWidth = 4.2;
+    ctx.beginPath();
+    ctx.moveTo(fx - px * 1.2, fy - 4.6);
+    ctx.lineTo(fx, fy - 2.2);
+    ctx.stroke();
+    // boot
+    ctx.fillStyle = '#171c28';
+    ctx.beginPath();
+    ctx.ellipse(fx + px * 1.4, fy - 1, 3.6, 2.1, Math.atan2(py2, px), 0, TAU);
     ctx.fill();
   }
 
-  drawGoalFrame(ctx, -1);
-  drawGoalFrame(ctx, 1);
+  /* shorts */
+  ctx.fillStyle = kit.shorts;
+  rr(ctx, x - 8.6, hipY - 2, 17.2, 9.6, 4);
+  ctx.fill();
 
-  drawParticles(ctx, view);
+  /* torso */
+  const tg = ctx.createLinearGradient(0, hipY - 25, 0, hipY - 3);
+  tg.addColorStop(0, kit.shirt1);
+  tg.addColorStop(1, kit.shirt2);
+  ctx.fillStyle = tg;
+  rr(ctx, x - 9, hipY - 25, 18, 20, 6);
+  ctx.fill();
+  // trim stripe
+  ctx.fillStyle = kit.trim;
+  ctx.fillRect(x - 9, hipY - 9.5, 18, 2.2);
+  // collar
+  ctx.fillStyle = p.gk
+    ? p.team === 0 ? KITS.gkB.cap : KITS.gkY.cap
+    : p.team === 1
+      ? '#ff5fa2'
+      : 'rgba(255,255,255,0.9)';
+  rr(ctx, x - 3.6, hipY - 25, 7.2, 3.2, 1.6);
+  ctx.fill();
 
-  // ---- screen space atmosphere ----
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const vg = ctx.createRadialGradient(
-    cw / 2,
-    ch / 2,
-    Math.min(cw, ch) * 0.42,
-    cw / 2,
-    ch / 2,
-    Math.max(cw, ch) * 0.75
-  );
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, 'rgba(2,6,16,0.42)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, cw, ch);
+  /* arms */
+  const armSwing = moving ? Math.sin(p.runPhase + Math.PI) * 0.9 : 0;
+  const celebrate = p.celebrateT > 0;
+  for (const i of [0, 1]) {
+    const sx = x + (i === 0 ? -9.4 : 9.4);
+    const sy = hipY - 21;
+    let hx = sx + (i === 0 ? -3 : 3) + px * armSwing * (i === 0 ? 3 : -3);
+    let hy = sy + 9;
+    if (celebrate) {
+      hx = sx + (i === 0 ? -4.5 : 4.5);
+      hy = sy - 8 - Math.sin(t * 11 + i * 2) * 2;
+    }
+    // sleeve
+    ctx.strokeStyle = kit.sleeve;
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy + 1);
+    ctx.lineTo(sx + (hx - sx) * 0.45, sy + (hy - sy) * 0.45);
+    ctx.stroke();
+    // forearm
+    ctx.strokeStyle = p.skin;
+    ctx.lineWidth = 3.6;
+    ctx.beginPath();
+    ctx.moveTo(sx + (hx - sx) * 0.45, sy + (hy - sy) * 0.45);
+    ctx.lineTo(hx, hy);
+    ctx.stroke();
+    // hand / glove
+    ctx.fillStyle = p.gk ? '#eef3ff' : p.skin;
+    ctx.beginPath();
+    ctx.arc(hx, hy, p.gk ? 2.8 : 2.2, 0, TAU);
+    ctx.fill();
+  }
+
+  /* number */
+  ctx.fillStyle = kit.num;
+  ctx.font = '7.5px Bungee, Rubik, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(p.num), x, hipY - 15);
+
+  /* head */
+  const headY = hipY - 31 - bounce * 0.3;
+  ctx.fillStyle = p.skin;
+  ctx.beginPath();
+  ctx.arc(x, headY, 6.7, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = p.hair;
+  ctx.beginPath();
+  ctx.arc(x - face * 1.1, headY - 1.5, 6.3, Math.PI * 0.95, Math.PI * 2.05);
+  ctx.fill();
+  if (p.gk) {
+    ctx.fillStyle = p.team === 0 ? KITS.gkB.cap : KITS.gkY.cap;
+    ctx.beginPath();
+    ctx.arc(x, headY - 2.4, 6.3, Math.PI, TAU);
+    ctx.fill();
+    ctx.fillRect(x - 6.3, headY - 2.8, 12.6, 2.3);
+  }
+
+  /* active indicator */
+  if (p.id === g.activeId && !g.demo) {
+    const by = headY - 15 - Math.sin(t * 6) * 2.6;
+    ctx.fillStyle = '#5db2ff';
+    ctx.strokeStyle = '#eaf6ff';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, by + 7);
+    ctx.lineTo(x - 6, by);
+    ctx.lineTo(x + 6, by);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* ---------------- ball ---------------- */
+function drawBall(ctx: CanvasRenderingContext2D, g: GameView) {
+  const b = g.ball;
+  const y = b.y - b.z * 0.92;
+  const r = 8;
+
+  ctx.save();
+  ctx.translate(b.x, y);
+  ctx.rotate(b.spin);
+  const bg = ctx.createRadialGradient(-2.4, -2.6, 1, 0, 0, r + 1);
+  bg.addColorStop(0, '#ffffff');
+  bg.addColorStop(0.75, '#f2f4f8');
+  bg.addColorStop(1, '#c9d1dc');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fill();
+
+  /* black patches */
+  ctx.fillStyle = '#1c212c';
+  ctx.beginPath(); // centre pentagon
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * TAU - Math.PI / 2;
+    const px = Math.cos(a) * 3.4, pyv = Math.sin(a) * 3.4;
+    i === 0 ? ctx.moveTo(px, pyv) : ctx.lineTo(px, pyv);
+  }
+  ctx.closePath();
+  ctx.fill();
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * TAU - Math.PI / 2 + Math.PI / 5;
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * (r - 1.1), Math.sin(a) * (r - 1.1), 2.6, 0, TAU);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(20,26,38,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, r - 0.4, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------------- particles ---------------- */
+function drawParticles(ctx: CanvasRenderingContext2D, g: GameView) {
+  for (const p of g.particles) {
+    const a = clamp(p.life / p.maxLife, 0, 1);
+    if (p.kind === 'confetti') {
+      ctx.save();
+      ctx.translate(p.x, p.y - p.z);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    } else if (p.kind === 'dust') {
+      ctx.fillStyle = `rgba(205,190,150,${0.4 * a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - p.z, p.size * (1.6 - a * 0.6), 0, TAU);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(255,233,168,${a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - p.z, p.size, 0, TAU);
+      ctx.fill();
+    }
+  }
 }
