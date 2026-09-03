@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type PointerEvent as RPE,
   type ReactNode,
 } from 'react';
@@ -50,6 +49,12 @@ const IconCross = ({ s = 20 }: { s?: number }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M4 19C4 10.7 10.7 4 19 4" />
     <path d="m15 3 4 1-1 4" />
+  </svg>
+);
+const IconDribble = ({ s = 20 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 6h9M2 10h7" />
+    <path d="m13 14 7-2-2.4 8-2.2-2.4-3 3.4-1.6-1.4 3-3.4Z" fill="currentColor" stroke="none" opacity="0.95" />
   </svg>
 );
 const IconPause = ({ s = 18 }: { s?: number }) => (
@@ -106,37 +111,55 @@ const IconPhone = ({ s = 16 }: { s?: number }) => (
     <path d="M5 4h4l1.8 4.4-2.2 1.7a13.6 13.6 0 0 0 5.3 5.3l1.7-2.2L20 15v4a2 2 0 0 1-2.2 2A16.8 16.8 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />
   </svg>
 );
+const IconRotate = ({ s = 44 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="7" y="3" width="10" height="18" rx="2.4" />
+    <path d="M11 17.6h2" />
+    <path d="M3.5 12a8.5 8.5 0 0 1 3-6.4" opacity="0.85" />
+    <path d="m6.8 3.4-.4 2.4 2.4.3" opacity="0.85" />
+    <path d="M20.5 12a8.5 8.5 0 0 1-3 6.4" opacity="0.85" />
+    <path d="m17.2 20.6.4-2.4-2.4-.3" opacity="0.85" />
+  </svg>
+);
 
-/* ================= joystick ================= */
+/* ================= joystick (fixed base, always works) ================= */
 function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
   const zoneRef = useRef<HTMLDivElement>(null);
-  const [st, setSt] = useState<{ ox: number; oy: number; dx: number; dy: number } | null>(null);
-  const MAX = 54;
+  const [knob, setKnob] = useState<{ dx: number; dy: number } | null>(null);
+  const MAX = 52;
 
-  const down = (e: RPE<HTMLDivElement>) => {
-    const zone = zoneRef.current!;
-    zone.setPointerCapture(e.pointerId);
-    const r = zone.getBoundingClientRect();
-    setSt({ ox: e.clientX - r.left, oy: e.clientY - r.top, dx: 0, dy: 0 });
-    sfx.init();
-  };
-  const move = (e: RPE<HTMLDivElement>) => {
-    if (!st) return;
+  const vector = (e: RPE<HTMLDivElement>) => {
     const r = zoneRef.current!.getBoundingClientRect();
-    let dx = e.clientX - r.left - st.ox;
-    let dy = e.clientY - r.top - st.oy;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
     const d = Math.hypot(dx, dy);
     if (d > MAX) {
       dx = (dx / d) * MAX;
       dy = (dy / d) * MAX;
     }
-    setSt({ ...st, dx, dy });
-    onMove(dx / MAX, dy / MAX);
+    return { dx, dy };
+  };
+
+  const down = (e: RPE<HTMLDivElement>) => {
+    zoneRef.current!.setPointerCapture(e.pointerId);
+    sfx.init();
+    const v = vector(e);
+    setKnob(v);
+    onMove(v.dx / MAX, v.dy / MAX);
+  };
+  const move = (e: RPE<HTMLDivElement>) => {
+    if (knob === null) return;
+    const v = vector(e);
+    setKnob(v);
+    onMove(v.dx / MAX, v.dy / MAX);
   };
   const end = () => {
-    setSt(null);
+    setKnob(null);
     onMove(0, 0);
   };
+
   return (
     <div
       ref={zoneRef}
@@ -146,70 +169,82 @@ function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
       onPointerCancel={end}
       className="absolute z-20"
       style={{
-        left: 'calc(env(safe-area-inset-left, 0px) + max(10px, 2vh))',
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(10px, 2vh))',
-        width: 'min(36vmin, 210px)',
-        height: 'min(36vmin, 210px)',
+        left: 'calc(env(safe-area-inset-left, 0px) + max(12px, 2.5vw))',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(12px, 2.5vh))',
+        width: 'min(40vmin, 190px)',
+        height: 'min(40vmin, 190px)',
         touchAction: 'none',
       }}
     >
-      {st ? (
-        <>
-          <div
-            className="absolute rounded-full border-2"
-            style={{
-              left: st.ox - 58,
-              top: st.oy - 58,
-              width: 116,
-              height: 116,
-              borderColor: 'rgba(93,178,255,0.55)',
-              background: 'radial-gradient(circle, rgba(13,30,58,0.55) 0%, rgba(13,30,58,0.25) 70%)',
-              boxShadow: '0 0 24px rgba(40,120,255,0.25), inset 0 0 18px rgba(0,0,0,0.35)',
-            }}
-          />
-          <div
-            className="absolute rounded-full"
-            style={{
-              left: st.ox + st.dx - 26,
-              top: st.oy + st.dy - 26,
-              width: 52,
-              height: 52,
-              background: 'radial-gradient(circle at 34% 30%, #7db8ff, #2b6fe8 62%, #173f8f)',
-              border: '2px solid rgba(234,246,255,0.85)',
-              boxShadow: '0 6px 16px rgba(0,0,0,0.45)',
-            }}
-          />
-        </>
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className="rounded-full border-2 border-dashed flex items-center justify-center"
-            style={{
-              width: '62%',
-              height: '62%',
-              borderColor: 'rgba(140,180,255,0.4)',
-              background: 'radial-gradient(circle, rgba(13,30,58,0.45) 0%, rgba(13,30,58,0.15) 75%)',
-            }}
-          >
-            <div
-              className="rounded-full opacity-70"
-              style={{
-                width: '42%',
-                height: '42%',
-                background: 'radial-gradient(circle at 34% 30%, #7db8ff, #2b6fe8 62%, #173f8f)',
-                border: '2px solid rgba(234,246,255,0.7)',
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* base */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          border: '2px solid rgba(93,178,255,0.5)',
+          background:
+            'radial-gradient(circle, rgba(13,30,58,0.6) 0%, rgba(13,30,58,0.28) 72%)',
+          boxShadow:
+            '0 0 26px rgba(40,120,255,0.22), inset 0 0 20px rgba(0,0,0,0.35)',
+        }}
+      />
+      {/* direction ticks */}
+      {(
+        [
+          { left: '50%', top: 8, width: 3, height: 10, ml: -1.5, mt: 0 },
+          { left: '50%', bottom: 8, width: 3, height: 10, ml: -1.5, mt: 0 },
+          { top: '50%', left: 8, width: 10, height: 3, ml: 0, mt: -1.5 },
+          { top: '50%', right: 8, width: 10, height: 3, ml: 0, mt: -1.5 },
+        ] as {
+          left?: number | string;
+          top?: number | string;
+          right?: number;
+          bottom?: number;
+          width: number;
+          height: number;
+          ml: number;
+          mt: number;
+        }[]
+      ).map((s, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{
+            left: s.left,
+            top: s.top,
+            right: s.right,
+            bottom: s.bottom,
+            width: s.width,
+            height: s.height,
+            marginLeft: s.ml,
+            marginTop: s.mt,
+            background: 'rgba(140,180,255,0.4)',
+            borderRadius: 2,
+          }}
+        />
+      ))}
+      {/* knob */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          left: '50%',
+          top: '50%',
+          width: 62,
+          height: 62,
+          transform: `translate(calc(-50% + ${knob?.dx ?? 0}px), calc(-50% + ${knob?.dy ?? 0}px))`,
+          background:
+            'radial-gradient(circle at 34% 30%, #7db8ff, #2b6fe8 62%, #173f8f)',
+          border: '2px solid rgba(234,246,255,0.85)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
+          transition: knob === null ? 'transform 0.16s ease' : 'none',
+        }}
+      />
     </div>
   );
 }
 
 /* ================= action buttons ================= */
 function ActionButtons({ game, t }: { game: () => Game | null; t: Dict }) {
-  const hold = (fn: () => void) => (e: RPE<HTMLButtonElement>) => {
+  const press = (fn: () => void) => (e: RPE<HTMLButtonElement>) => {
     e.preventDefault();
     sfx.init();
     fn();
@@ -220,59 +255,65 @@ function ActionButtons({ game, t }: { game: () => Game | null; t: Dict }) {
       style={{
         right: 'calc(env(safe-area-inset-right, 0px) + max(12px, 2.5vw))',
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(12px, 2.5vh))',
-        width: 200,
-        height: 158,
-        /* shrinks gracefully on short landscape screens (phone heights) */
+        width: 250,
+        height: 174,
         transform: 'scale(var(--ctrl-scale, 1))',
         transformOrigin: '100% 100%',
       }}
     >
+      {/* DRIBBLE */}
+      <button
+        className="hud-btn absolute"
+        style={{
+          right: 182, bottom: 6, width: 62, height: 62,
+          color: '#fff3d6',
+          background: 'radial-gradient(circle at 32% 28%, #ffc14d, #e08b12 62%, #8f5606)',
+          border: '2px solid rgba(255,240,210,0.8)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 -6px 10px rgba(60,35,0,0.35)',
+        }}
+        onPointerDown={press(() => game()?.dribble())}
+        aria-label={t.ariaDribble}
+      >
+        <IconDribble />
+        <span className="text-[8.5px] leading-none mt-0.5">{t.dribble}</span>
+      </button>
       {/* CROSS */}
       <button
         className="hud-btn absolute"
         style={{
-          right: 108,
-          bottom: 10,
-          width: 66,
-          height: 66,
+          right: 106, bottom: 6, width: 62, height: 62,
           color: '#d7f2ff',
           background: 'radial-gradient(circle at 32% 28%, #39c2ff, #0e7dc4 62%, #084a78)',
           border: '2px solid rgba(214,242,255,0.8)',
           boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 -6px 10px rgba(0,20,40,0.35)',
         }}
-        onPointerDown={hold(() => game()?.cross())}
+        onPointerDown={press(() => game()?.cross())}
         aria-label={t.ariaCross}
       >
         <IconCross />
-        <span className="text-[9px] leading-none mt-0.5">{t.cross}</span>
+        <span className="text-[8.5px] leading-none mt-0.5">{t.cross}</span>
       </button>
       {/* PASS */}
       <button
         className="hud-btn absolute"
         style={{
-          right: 14,
-          bottom: 96,
-          width: 66,
-          height: 66,
+          right: 18, bottom: 106, width: 62, height: 62,
           color: '#e2ffe9',
           background: 'radial-gradient(circle at 32% 28%, #54e08b, #17994c 62%, #0a5c2c)',
           border: '2px solid rgba(220,255,230,0.8)',
           boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 -6px 10px rgba(0,30,10,0.35)',
         }}
-        onPointerDown={hold(() => game()?.pass())}
+        onPointerDown={press(() => game()?.pass())}
         aria-label={t.ariaPass}
       >
         <IconPass />
-        <span className="text-[9px] leading-none mt-0.5">{t.pass}</span>
+        <span className="text-[8.5px] leading-none mt-0.5">{t.pass}</span>
       </button>
       {/* SHOOT */}
       <button
         className="hud-btn absolute"
         style={{
-          right: 0,
-          bottom: 0,
-          width: 94,
-          height: 94,
+          right: 0, bottom: 0, width: 98, height: 98,
           color: '#ffecec',
           background: 'radial-gradient(circle at 32% 28%, #ff7a6b, #e02f45 60%, #8f1030)',
           border: '3px solid rgba(255,226,226,0.85)',
@@ -350,8 +391,7 @@ function Modal({
           <button
             className="hud-btn"
             style={{
-              width: 44,
-              height: 44,
+              width: 44, height: 44,
               color: '#bcd2f5',
               background: 'rgba(19,35,63,0.8)',
               border: '1px solid rgba(90,140,220,0.45)',
@@ -373,30 +413,19 @@ function Modal({
 /* ================= help content ================= */
 function HelpRow({ n, title, body }: { n: number; title: string; body: string }) {
   return (
-    <div
-      className="flex gap-3 py-2.5"
-      style={{ borderBottom: '1px dashed rgba(90,140,220,0.18)' }}
-    >
+    <div className="flex gap-3 py-2.5" style={{ borderBottom: '1px dashed rgba(90,140,220,0.18)' }}>
       <span
         className="shrink-0 font-display text-[11px] mt-0.5 flex items-center justify-center"
         style={{
-          width: 26,
-          height: 26,
-          borderRadius: 8,
-          color: '#ffd23f',
-          background: '#13233f',
-          border: '1px solid rgba(255,210,63,0.35)',
+          width: 26, height: 26, borderRadius: 8, color: '#ffd23f',
+          background: '#13233f', border: '1px solid rgba(255,210,63,0.35)',
         }}
       >
         {n}
       </span>
       <div className="min-w-0">
-        <div className="font-bold text-[14px]" style={{ color: '#eaf2ff' }}>
-          {title}
-        </div>
-        <div className="text-[12.5px] leading-6 mt-0.5" style={{ color: '#9db4dc' }}>
-          {body}
-        </div>
+        <div className="font-bold text-[14px]" style={{ color: '#eaf2ff' }}>{title}</div>
+        <div className="text-[12.5px] leading-6 mt-0.5" style={{ color: '#9db4dc' }}>{body}</div>
       </div>
     </div>
   );
@@ -416,9 +445,7 @@ function HelpSection({ chip, title, items }: { chip: string; title: string; item
         >
           {chip}
         </span>
-        <span className="font-display text-[16px]" style={{ color: '#ffffff' }}>
-          {title}
-        </span>
+        <span className="font-display text-[16px]" style={{ color: '#ffffff' }}>{title}</span>
       </div>
       {items.map((it, i) => (
         <HelpRow key={it.title} n={i + 1} title={it.title} body={it.body} />
@@ -447,8 +474,7 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
         <div
           className="flex items-center justify-center rounded-full"
           style={{
-            width: 76,
-            height: 76,
+            width: 76, height: 76,
             background: 'radial-gradient(circle at 32% 28%, #4da3ff, #1b5fd6 65%, #123e8c)',
             border: '2px solid rgba(190,225,255,0.8)',
             boxShadow: '0 10px 30px rgba(27,95,214,0.45)',
@@ -456,24 +482,13 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
         >
           <IconBall s={44} />
         </div>
-        <div className="font-display text-xl mt-3" style={{ color: '#ffffff' }}>
-          {t.aboutTitle}
-        </div>
-        <div className="font-body font-bold text-[15px] mt-2" style={{ color: '#cfe0fa' }}>
-          {t.aboutName}
-        </div>
-        <div className="font-body text-[13.5px] mt-1" style={{ color: '#9db4dc' }}>
-          {t.aboutClass}
-        </div>
+        <div className="font-display text-xl mt-3" style={{ color: '#ffffff' }}>{t.aboutTitle}</div>
+        <div className="font-body font-bold text-[15px] mt-2" style={{ color: '#cfe0fa' }}>{t.aboutName}</div>
+        <div className="font-body text-[13.5px] mt-1" style={{ color: '#9db4dc' }}>{t.aboutClass}</div>
 
-        <div
-          className="w-full my-4"
-          style={{ borderBottom: '1px dashed rgba(90,140,220,0.3)' }}
-        />
+        <div className="w-full my-4" style={{ borderBottom: '1px dashed rgba(90,140,220,0.3)' }} />
 
-        <div className="font-body text-[13px] font-bold" style={{ color: '#8fa8d0' }}>
-          {t.aboutContact}
-        </div>
+        <div className="font-body text-[13px] font-bold" style={{ color: '#8fa8d0' }}>{t.aboutContact}</div>
         <a
           href="tel:+971551544988"
           className="mt-2 inline-flex items-center gap-2.5 font-body font-bold text-[16px] px-5 py-2.5 rounded-full"
@@ -484,7 +499,6 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
             border: '1px solid rgba(255,210,63,0.45)',
             letterSpacing: '0.06em',
             textDecoration: 'none',
-            transition: 'transform .12s ease, box-shadow .12s ease',
           }}
         >
           <IconPhone s={17} />
@@ -540,79 +554,50 @@ function LangToggle({ lang, setLang, t }: { lang: Lang; setLang: (l: Lang) => vo
   );
 }
 
-/* ================= orientation (portrait → friendly rotate prompt) ================= */
+/* ================= orientation ================= */
 function usePortrait() {
   const [portrait, setPortrait] = useState(
-    () => window.innerHeight > window.innerWidth
+    () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth
   );
   useEffect(() => {
-    const mq = window.matchMedia('(orientation: portrait)');
-    const update = () => setPortrait(window.innerHeight > window.innerWidth);
-    if (mq.addEventListener) mq.addEventListener('change', update);
-    else mq.addListener(update);
-    window.addEventListener('resize', update);
-    window.addEventListener('orientationchange', update);
+    const onR = () => setPortrait(window.innerHeight > window.innerWidth);
+    window.addEventListener('resize', onR);
+    window.addEventListener('orientationchange', onR);
     return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', update);
-      else mq.removeListener(update);
-      window.removeEventListener('resize', update);
-      window.removeEventListener('orientationchange', update);
+      window.removeEventListener('resize', onR);
+      window.removeEventListener('orientationchange', onR);
     };
   }, []);
   return portrait;
 }
 
-function RotateOverlay({ t, onContinue }: { t: Dict; onContinue: () => void }) {
+function RotateOverlay({ t, onDismiss }: { t: Dict; onDismiss: () => void }) {
   return (
     <div
-      className="absolute inset-0 z-[25] flex items-center justify-center p-4 fade-in"
-      style={{
-        background: 'rgba(3,8,16,0.88)',
-        touchAction: 'none',
-        pointerEvents: 'auto',
-      }}
+      className="absolute inset-0 z-[60] flex flex-col items-center justify-center text-center fade-in px-8"
+      style={{ background: 'rgba(4,9,18,0.94)' }}
     >
-      <div className="rise-in flex flex-col items-center text-center" style={{ maxWidth: 400 }}>
-        <div className="phone-tilt">
-          <svg width="76" height="76" viewBox="0 0 48 48" fill="none" aria-hidden>
-            <rect
-              x="15" y="7" width="18" height="34" rx="4.5"
-              stroke="#7db8ff" strokeWidth="2.6"
-            />
-            <path d="M21 36.5h6" stroke="#7db8ff" strokeWidth="2.6" strokeLinecap="round" />
-            <circle cx="24" cy="12.3" r="1.3" fill="#7db8ff" />
-            <path
-              d="M6 27c1.5 4.5 4.5 8 8.4 10.3M42 21c-1.5-4.5-4.5-8-8.4-10.3"
-              stroke="#ffd23f" strokeWidth="2.4" strokeLinecap="round"
-            />
-            <path d="m13 39.5 1.8-2.6-3-.9Z" fill="#ffd23f" />
-            <path d="m35 8.5-1.8 2.6 3 .9Z" fill="#ffd23f" />
-          </svg>
-        </div>
-        <div
-          className="font-display text-2xl mt-5"
-          style={{ color: '#ffffff', textShadow: '0 3px 0 rgba(0,0,0,0.45)' }}
-        >
-          {t.rotateTitle}
-        </div>
-        <p className="font-body text-[13.5px] leading-6 mt-2" style={{ color: '#9db4dc' }}>
-          {t.rotateText}
-        </p>
-        <button
-          className="hud-btn px-8 py-3 text-sm text-white mt-5"
-          style={{
-            background: 'linear-gradient(180deg,#1d3a6b,#122547)',
-            border: '1px solid rgba(90,140,220,0.5)',
-          }}
-          onClick={() => {
-            sfx.init();
-            sfx.click();
-            onContinue();
-          }}
-        >
-          {t.rotateContinue}
-        </button>
+      <div className="phone-tilt" style={{ color: '#5db2ff' }}>
+        <IconRotate s={72} />
       </div>
+      <div className="font-display text-2xl mt-6" style={{ color: '#eaf2ff' }}>
+        {t.rotateTitle}
+      </div>
+      <div className="font-body text-[14px] mt-3 max-w-[340px] leading-7" style={{ color: '#9db4dc' }}>
+        {t.rotateText}
+      </div>
+      <button
+        className="hud-btn play-btn mt-8 px-10 py-4 text-base pulse-ring"
+        style={{
+          color: '#ffffff',
+          background: 'radial-gradient(circle at 30% 25%, #54e08b, #17994c 62%, #0a5c2c)',
+          border: '2px solid rgba(220,255,230,0.85)',
+          boxShadow: '0 10px 30px rgba(23,153,76,0.5), inset 0 -8px 14px rgba(6,60,28,0.5)',
+        }}
+        onClick={onDismiss}
+      >
+        {t.rotateContinue}
+      </button>
     </div>
   );
 }
@@ -637,23 +622,20 @@ export default function App() {
 
   const t = STR[lang];
 
-  /* re-show the rotate hint whenever orientation changes back to portrait */
-  useEffect(() => {
-    setRotateDismissed(false);
-  }, [portrait]);
-
-  /* language + direction + persistence */
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
     saveLang(lang);
   }, [lang]);
 
-  /* mute persistence */
   useEffect(() => {
     saveMuted(muted);
     sfx.setMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    setRotateDismissed(false);
+  }, [portrait]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -776,7 +758,7 @@ export default function App() {
           {phase === 'kickoff' && (
             <div
               className="absolute left-1/2 -translate-x-1/2"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + max(54px, 8.5vh))' }}
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + max(62px, 9vh))' }}
             >
               <div
                 className="font-display text-sm tracking-widest px-4 py-1.5 rounded-full rise-in"
@@ -823,11 +805,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ==================== ROTATE HINT (portrait) ==================== */}
-      {inMatch && controlsLive && portrait && !rotateDismissed && (
-        <RotateOverlay t={t} onContinue={() => setRotateDismissed(true)} />
-      )}
-
       {/* ==================== PAUSE ==================== */}
       {inMatch && phase === 'paused' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-3" style={{ background: 'rgba(4,9,18,0.72)' }}>
@@ -867,7 +844,7 @@ export default function App() {
             <div
               className="font-display mt-1"
               style={{
-                fontSize: 38,
+                fontSize: 40,
                 color: result.win === 'win' ? '#6fe09a' : result.win === 'loss' ? '#ff8f8f' : '#bcd2f5',
                 textShadow: '0 3px 0 rgba(0,0,0,0.45)',
               }}
@@ -890,7 +867,7 @@ export default function App() {
               <div className="flex justify-between gap-6"><span>{t.stSaves}</span><b className="text-white">{result.stats.saves}</b></div>
             </div>
 
-            <div className="flex gap-3 mt-6 flex-wrap justify-center">
+            <div className="flex gap-3 mt-6">
               <button className="hud-btn px-7 py-3 text-sm text-white pulse-ring" style={{ background: 'linear-gradient(180deg,#3d8bff,#1b5fd6)', border: '1px solid rgba(160,210,255,0.6)' }} onClick={play}>
                 {t.playAgain}
               </button>
@@ -917,10 +894,7 @@ export default function App() {
 
           <div
             className="absolute top-1/2 -translate-y-1/2 flex flex-col items-start pointer-events-auto max-w-[560px] w-[min(94vw,560px)]"
-            style={{
-              insetInlineStart:
-                'calc(max(env(safe-area-inset-left,0px), env(safe-area-inset-right,0px)) + max(20px,4vw))',
-            }}
+            style={{ insetInlineStart: 'max(20px,4vw)' }}
           >
             <div className="flex items-center gap-2 mb-2 rise-in">
               <span className="inline-flex items-center gap-1.5 font-body text-[11px] font-bold tracking-[0.22em] px-3 py-1 rounded-full" style={{ color: '#ff8f8f', background: 'rgba(60,12,20,0.7)', border: '1px solid rgba(255,110,110,0.4)' }}>
@@ -963,7 +937,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* secondary menu row: Help · About · Language · Sound */}
+            {/* secondary menu row */}
             <div className="rise-in mt-4 flex flex-wrap items-center gap-2.5" style={{ animationDelay: '0.2s' }}>
               <button
                 className="menu-btn font-body font-bold text-[13px] px-4 py-2.5"
@@ -1015,14 +989,18 @@ export default function App() {
             className="absolute font-body text-[11px] pointer-events-none"
             style={{
               bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(14px,3vh))',
-              insetInlineEnd:
-                'calc(max(env(safe-area-inset-left,0px), env(safe-area-inset-right,0px)) + max(16px,3vw))',
+              insetInlineEnd: 'max(16px,3vw)',
               color: '#5b7396',
             }}
           >
             {t.camNote}
           </div>
         </div>
+      )}
+
+      {/* ==================== rotate prompt ==================== */}
+      {portrait && !rotateDismissed && (
+        <RotateOverlay t={t} onDismiss={ui(() => setRotateDismissed(true))} />
       )}
 
       {/* ==================== MODALS ==================== */}

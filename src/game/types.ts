@@ -7,12 +7,14 @@ export type GamePhase =
   | 'paused'
   | 'fulltime';
 
-/* ---------------- pitch geometry (pitch space, pitch TL = 0,0) ------------- */
-export const PITCH_W = 960;
-export const PITCH_H = 600;
+/* ---------------- pitch geometry (world units; pitch TL = 0,0) ------------- */
+export const PITCH_W = 1560; // big, spacious, real-ratio pitch
+export const PITCH_H = 1000;
 export const CY = PITCH_H / 2;
-export const GOAL_HALF = 84; // half of the goal mouth
-export const MARGIN = 132; // stadium apron around the pitch (world space)
+export const GOAL_HALF = 140; // half of the goal mouth (generous arcade goals)
+export const GOAL_H = 96; // crossbar height (3D)
+export const NET_DEPTH = 68; // how deep the net extends behind the line (3D)
+export const MARGIN = 235; // grass apron around the pitch
 export const WORLD_W = PITCH_W + MARGIN * 2;
 export const WORLD_H = PITCH_H + MARGIN * 2;
 
@@ -33,6 +35,8 @@ export interface PlayerT {
   runPhase: number;
   kickT: number;
   kickKind: number; // 1 shoot, 2 pass, 3 cross
+  dashT: number; // dribble burst remaining
+  dashCool: number; // dribble cooldown remaining
   tackleCool: number;
   aiT: number;
   tx: number;
@@ -95,6 +99,12 @@ export interface InputState {
   shoot: boolean;
 }
 
+export interface CameraT {
+  x: number; // smoothed focus point (world)
+  y: number;
+  zoom: number; // smoothed zoom factor
+}
+
 /* ---------------- view the renderer reads ---------------- */
 export interface GameView {
   players: PlayerT[];
@@ -108,6 +118,7 @@ export interface GameView {
   tGlobal: number;
   phase: GamePhase;
   demo: boolean;
+  cam: CameraT;
 }
 
 /* ---------------- helpers ---------------- */

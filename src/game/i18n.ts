@@ -18,7 +18,6 @@ export interface Dict {
   play: string;
   help: string;
   about: string;
-  language: string;
   soundOn: string;
   soundOff: string;
   guide1: string;
@@ -48,14 +47,15 @@ export interface Dict {
   shoot: string;
   pass: string;
   cross: string;
+  dribble: string;
   close: string;
-  back: string;
   /* aria */
   ariaPause: string;
   ariaSound: string;
   ariaShoot: string;
   ariaPass: string;
   ariaCross: string;
+  ariaDribble: string;
   ariaLanguage: string;
   /* help */
   helpTitle: string;
@@ -68,6 +68,7 @@ export interface Dict {
   aboutName: string;
   aboutClass: string;
   aboutContact: string;
+
   /* orientation */
   rotateTitle: string;
   rotateText: string;
@@ -78,19 +79,21 @@ export const STR: Record<Lang, Dict> = {
   /* ================================ ENGLISH ================================ */
   en: {
     dir: 'ltr',
-    demoBadge: 'LIVE DEMO ON THE PITCH',
-    kicker: 'ARCADE FOOTBALL',
-    subtitleA: 'Full-pitch arcade football — the whole stadium stays on screen.',
+    demoBadge: 'LIVE MATCH ON THE PITCH',
+    kicker: '3D ARCADE FOOTBALL',
+    subtitleA:
+      'A broadcast-style 3D camera glides after the ball across a big, floodlit stadium.',
     subtitleB: '3 minutes · Two keepers · Easy to score',
     play: 'PLAY',
     help: 'Help',
     about: 'About',
-    language: 'Language',
     soundOn: 'Sound: On',
     soundOff: 'Sound: Off',
-    guide1: 'W A S D / joystick — move · SPACE — shoot (hold = power)',
+    guide1:
+      'W A S D / joystick — move · SPACE — shoot (hold = power) · V — dribble',
     guide2: 'X pass · C cross · P pause · nearest blue player is auto-selected',
-    camNote: 'Fixed broadcast camera · BLUE attacks right · WHITE attacks left',
+    camNote:
+      '3D follow camera · BLUE attacks right · WHITE attacks left',
     blue: 'BLUE',
     white: 'WHITE',
     kickoff: 'KICK OFF',
@@ -114,13 +117,14 @@ export const STR: Record<Lang, Dict> = {
     shoot: 'SHOOT',
     pass: 'PASS',
     cross: 'CROSS',
+    dribble: 'DRIBBLE',
     close: 'Close',
-    back: 'Back',
     ariaPause: 'Pause',
     ariaSound: 'Toggle sound',
     ariaShoot: 'Shoot — hold for power',
     ariaPass: 'Pass',
     ariaCross: 'Cross',
+    ariaDribble: 'Dribble burst',
     ariaLanguage: 'Change language',
     helpTitle: 'Game Guide',
     howto: 'How to Play',
@@ -128,7 +132,7 @@ export const STR: Record<Lang, Dict> = {
     helpHowto: [
       {
         title: 'About the game',
-        body: 'MAGIC FOOTBALL is a fast arcade match: 2 vs 2 plus two goalkeepers, all on one screen with a fixed camera that always shows the full pitch.',
+        body: 'MAGIC FOOTBALL is a fast 3D arcade match: 2 vs 2 plus two goalkeepers under the floodlights, with a broadcast camera that follows the ball.',
       },
       {
         title: 'Objective',
@@ -140,7 +144,7 @@ export const STR: Record<Lang, Dict> = {
       },
       {
         title: 'Movement',
-        body: 'Use the on-screen joystick (bottom-left) or the W A S D / arrow keys. The player accelerates, turns and stops smoothly across the whole pitch.',
+        body: 'Use the joystick (bottom-left) or W A S D / arrow keys. The player accelerates, turns and stops smoothly; the camera glides along with the action.',
       },
       {
         title: 'Shooting',
@@ -153,6 +157,10 @@ export const STR: Record<Lang, Dict> = {
       {
         title: 'Crossing',
         body: 'CROSS floats a high ball into the opponent penalty area. A glowing marker shows where the ball will land.',
+      },
+      {
+        title: 'Dribbling',
+        body: 'DRIBBLE gives a quick burst of speed while the ball stays glued to your feet — perfect for slipping past an opponent. Short cooldown.',
       },
       {
         title: 'Defense',
@@ -169,10 +177,6 @@ export const STR: Record<Lang, Dict> = {
       {
         title: 'Score & Timer',
         body: 'The top scoreboard shows BLUE — WHITE and the remaining time. After full time, the result and your stats (goals, shots, passes, saves) appear.',
-      },
-      {
-        title: 'Levels',
-        body: 'There are no levels — every match is one quick 3-minute game. Replay as many times as you like.',
       },
     ],
     helpMenus: [
@@ -194,12 +198,8 @@ export const STR: Record<Lang, Dict> = {
         body: 'The speaker button (main menu and in-game) turns all sound effects and crowd audio on or off. The setting is saved.',
       },
       {
-        title: 'Settings',
-        body: 'Language and sound are the game settings — both are saved automatically, no account needed.',
-      },
-      {
         title: 'In-game buttons',
-        body: 'Joystick at bottom-left · SHOOT / PASS / CROSS at bottom-right · pause and sound at top-right.',
+        body: 'Joystick at bottom-left · SHOOT / PASS / CROSS / DRIBBLE at bottom-right · pause and sound at top-right.',
       },
     ],
     aboutTitle: 'About the Developer',
@@ -208,26 +208,27 @@ export const STR: Record<Lang, Dict> = {
     aboutContact: 'Teacher Contact:',
     rotateTitle: 'Rotate your phone',
     rotateText:
-      'MAGIC FOOTBALL plays best in landscape — turn your phone sideways to see the whole pitch.',
+      'MAGIC FOOTBALL plays best in landscape — turn your phone sideways for the full 3D stadium view.',
     rotateContinue: 'Play anyway',
   },
 
   /* ================================ فارسی ================================ */
   fa: {
     dir: 'rtl',
-    demoBadge: 'نمایش زنده روی زمین',
-    kicker: 'فوتبال جادویی',
-    subtitleA: 'فوتبال آرکید با نمای کامل زمین — کل ورزشگاه همیشه در صفحه می‌ماند.',
+    demoBadge: 'مسابقه زنده روی زمین',
+    kicker: 'فوتبال سه‌بعدی آرکید',
+    subtitleA:
+      'دوربین تلویزیونی سه‌بعدی همراه با توپ در یک ورزشگاه بزرگ و پرنور حرکت می‌کند.',
     subtitleB: '۳ دقیقه · دو دروازه‌بان · گل‌زدن آسان',
     play: 'شروع بازی',
     help: 'راهنما',
     about: 'درباره سازنده',
-    language: 'زبان',
     soundOn: 'صدا: روشن',
     soundOff: 'صدا: خاموش',
-    guide1: 'کلیدهای W A S D / جوی‌استیک — حرکت · SPACE — شوت (نگه‌داشتن = قدرت بیشتر)',
-    guide2: 'X پاس · C سانتر · P توقف · نزدیک‌ترین بازیکن آبی به‌صورت خودکار انتخاب می‌شود',
-    camNote: 'دوربین ثابت تلویزیونی · تیم آبی به سمت راست حمله می‌کند · تیم سفید به سمت چپ',
+    guide1:
+      'کلیدهای W A S D / جوی‌استیک — حرکت · SPACE — شوت (نگه‌داشتن = قدرت) · V — دریبل',
+    guide2: 'X پاس · C سانتر · P توقف · نزدیک‌ترین بازیکن آبی خودکار انتخاب می‌شود',
+    camNote: 'دوربین سه‌بعدی دنبال‌کننده · تیم آبی به سمت راست حمله می‌کند · تیم سفید به سمت چپ',
     blue: 'آبی',
     white: 'سفید',
     kickoff: 'شروع مسابقه',
@@ -251,92 +252,89 @@ export const STR: Record<Lang, Dict> = {
     shoot: 'شوت',
     pass: 'پاس',
     cross: 'سانتر',
+    dribble: 'دریبل',
     close: 'بستن',
-    back: 'بازگشت',
     ariaPause: 'توقف بازی',
     ariaSound: 'قطع و وصل صدا',
     ariaShoot: 'شوت — برای قدرت بیشتر نگه دارید',
     ariaPass: 'پاس',
     ariaCross: 'سانتر',
+    ariaDribble: 'دریبل سرعتی',
     ariaLanguage: 'تغییر زبان',
     helpTitle: 'راهنمای بازی',
-    howto: 'راهنمای بازی',
+    howto: 'نحوه بازی',
     menus: 'راهنمای منوها',
     helpHowto: [
       {
-        title: 'معرفی بازی',
-        body: 'مجیک فوتبال یک مسابقه فوتبال آرکید و سریع است؛ ۲ در برابر ۲ به‌همراه دو دروازه‌بان، همه‌چیز در یک صفحه و با دوربین ثابتی که همیشه کل زمین را نشان می‌دهد.',
+        title: 'درباره بازی',
+        body: 'مجیک فوتبال یک مسابقه سریع سه‌بعدی است: ۲ در برابر ۲ به‌علاوه دو دروازه‌بان زیر نور پروژکتورها، با دوربین تلویزیونی که دنبال توپ حرکت می‌کند.',
       },
       {
         title: 'هدف بازی',
-        body: 'پیش از پایان زمان ۳ دقیقه‌ای، بیشتر از تیم سفید گل بزنید. بازی طوری تنظیم شده که آسان و سرگرم‌کننده باشد و شانس برد شما بالا باشد.',
+        body: 'قبل از پایان ۳ دقیقه، بیشتر از تیم سفید گل بزنید. بازی طوری تنظیم شده که آسان و سرگرم‌کننده باشد — شانس پیروزی شما زیاد است.',
       },
       {
-        title: 'شروع بازی',
-        body: 'در منوی اصلی دکمه «شروع بازی» را بزنید؛ بازیکن‌ها سر جای خود می‌ایستند و با سوت داور مسابقه آغاز می‌شود.',
+        title: 'شروع مسابقه',
+        body: 'در منوی اصلی دکمه «شروع بازی» را بزنید. بازیکن‌ها سر جای خود قرار می‌گیرند و با سوت داور مسابقه شروع می‌شود.',
       },
       {
-        title: 'حرکت',
-        body: 'با جوی‌استیک روی صفحه (گوشه پایین چپ) یا کلیدهای W A S D / جهت‌نما حرکت کنید. بازیکن به‌نرمی در کل زمین شتاب می‌گیرد، می‌چرخد و می‌ایستد.',
+        title: 'حرکت کردن',
+        body: 'از جوی‌استیک (پایین سمت چپ) یا کلیدهای W A S D / جهت‌نما استفاده کنید. بازیکن به‌نرمی شتاب می‌گیرد، می‌چرخد و می‌ایستد؛ دوربین هم همراه صحنه حرکت می‌کند.',
       },
       {
-        title: 'شوت',
-        body: 'یک ضربه روی دکمه «شوت» = شوت معمولی به سمت دروازه. نگه‌داشتن دکمه = شوت قدرتمند؛ حلقه رنگی دور بازیکن میزان قدرت را نشان می‌دهد.',
+        title: 'شوت زدن',
+        body: 'با یک لمس دکمه شوت، ضربه معمولی به سمت دروازه زده می‌شود. اگر دکمه را نگه دارید، شوت قدرتمندتر می‌شود — حلقه رنگی دور بازیکن قدرت را نشان می‌دهد.',
       },
       {
-        title: 'پاس',
-        body: 'دکمه «پاس» توپ را به‌طور خودکار و دقیق به هم‌تیمی‌تان می‌فرستد — هیچ نیازی به نشانه‌گیری نیست.',
+        title: 'پاس دادن',
+        body: 'دکمه پاس توپ را به‌صورت خودکار و دقیق به هم‌تیمی‌تان می‌رساند — نیازی به هدف‌گیری نیست.',
       },
       {
         title: 'سانتر',
-        body: 'دکمه «سانتر» توپ را به‌صورت هوایی به محوطه جریمه حریف می‌فرستد؛ یک نشانگر درخشان محل فرود توپ را مشخص می‌کند.',
+        body: 'دکمه سانتر توپ را به‌صورت هوایی و بلند به محوطه جریمه حریف می‌فرستد. یک نشانگر درخشان محل فرود توپ را نشان می‌دهد.',
       },
       {
-        title: 'دفاع',
-        body: 'با دویدن به سمت حریفِ صاحب‌توپ، توپ را از او بگیرید (تکل). هم‌تیمی و دروازه‌بان شما هم به‌صورت خودکار دفاع می‌کنند.',
+        title: 'دریبل',
+        body: 'دکمه دریبل یک جهش سرعتی کوتاه به بازیکن می‌دهد در حالی که توپ به پایش می‌چسبد — عالی برای رد شدن از مدافع حریف. چند ثانیه زمان لازم دارد تا دوباره آماده شود.',
       },
       {
-        title: 'تعویض بازیکن',
-        body: 'نزدیک‌ترین بازیکن آبی به توپ به‌صورت خودکار انتخاب می‌شود و با فلش و حلقه نورانی مشخص است.',
+        title: 'دفاع کردن',
+        body: 'با دویدن به سمت حریفی که توپ را دارد، توپ را از او بگیرید. هم‌تیمی و دروازه‌بان شما هم به‌صورت خودکار دفاع می‌کنند.',
+      },
+      {
+        title: 'انتخاب بازیکن',
+        body: 'نزدیک‌ترین بازیکن آبی به توپ به‌صورت خودکار انتخاب می‌شود — با یک فلش و حلقه درخشان مشخص است.',
       },
       {
         title: 'توقف و شروع دوباره',
-        body: 'کلید P یا دکمه توقف (بالا راست) بازی را نگه می‌دارد؛ از آن‌جا می‌توانید ادامه دهید، مسابقه را از اول شروع کنید یا به منوی اصلی برگردید.',
+        body: 'کلید P یا دکمه توقف (بالا راست) بازی را متوقف می‌کند. از صفحه توقف می‌توانید ادامه دهید، بازی را دوباره شروع کنید یا به منوی اصلی برگردید.',
       },
       {
         title: 'امتیاز و زمان',
-        body: 'جدول بالای صفحه نتیجه «آبی — سفید» و زمان باقی‌مانده را نشان می‌دهد؛ پس از پایان بازی، نتیجه و آمار شما (گل، شوت، پاس، مهارها) نمایش داده می‌شود.',
-      },
-      {
-        title: 'مراحل',
-        body: 'مرحله‌ای وجود ندارد — هر مسابقه یک بازی سریع ۳ دقیقه‌ای است و می‌توانید هر چقدر بخواهید دوباره بازی کنید.',
+        body: 'جدول بالای صفحه نتیجه آبی — سفید و زمان باقی‌مانده را نشان می‌دهد. بعد از پایان بازی، نتیجه و آمار شما (گل‌ها، شوت‌ها، پاس‌ها، مهارها) نمایش داده می‌شود.',
       },
     ],
     helpMenus: [
-      { title: 'شروع بازی (PLAY)', body: 'بلافاصله یک مسابقه جدید را شروع می‌کند.' },
+      { title: 'شروع بازی', body: 'بلافاصله یک مسابقه جدید را شروع می‌کند.' },
       {
-        title: 'راهنما (Help)',
-        body: 'همین پنجره را باز می‌کند؛ شامل دو بخش جدا و واضح: «راهنمای بازی» و «راهنمای منوها».',
+        title: 'راهنما',
+        body: 'همین پنجره را با دو بخش «نحوه بازی» و «راهنمای منوها» باز می‌کند.',
       },
       {
-        title: 'درباره سازنده (About)',
-        body: 'اطلاعات سازنده بازی و شماره تماس استاد را نشان می‌دهد.',
+        title: 'درباره سازنده',
+        body: 'نشان می‌دهد سازنده بازی کیست و شماره تماس استاد را نمایش می‌دهد.',
       },
       {
-        title: 'زبان (Language)',
-        body: 'بین English و فارسی جابه‌جا می‌شود. انتخاب شما در مرورگر ذخیره می‌شود و بعد از رفرش هم باقی می‌ماند.',
+        title: 'زبان',
+        body: 'بین English و فارسی جابه‌جا می‌شود. انتخاب شما در مرورگر ذخیره می‌شود و بعد از رفرش باقی می‌ماند.',
       },
       {
-        title: 'صدا و موسیقی (Sound)',
+        title: 'صدا و موسیقی',
         body: 'دکمه بلندگو (در منو و داخل بازی) همه افکت‌های صوتی و صدای تماشاگران را روشن یا خاموش می‌کند. این تنظیم ذخیره می‌شود.',
       },
       {
-        title: 'تنظیمات (Settings)',
-        body: 'زبان و صدا تنظیمات بازی هستند — هر دو به‌صورت خودکار ذخیره می‌شوند و نیازی به حساب کاربری نیست.',
-      },
-      {
         title: 'دکمه‌های داخل بازی',
-        body: 'جوی‌استیک در پایین چپ · دکمه‌های شوت / پاس / سانتر در پایین راست · توقف و صدا در بالا راست قرار دارند.',
+        body: 'جوی‌استیک پایین چپ · دکمه‌های شوت / پاس / سانتر / دریبل پایین راست · توقف و صدا بالا راست قرار دارند.',
       },
     ],
     aboutTitle: 'درباره سازنده',
@@ -345,7 +343,7 @@ export const STR: Record<Lang, Dict> = {
     aboutContact: 'شماره استاد:',
     rotateTitle: 'گوشی را بچرخانید',
     rotateText:
-      'مجیک فوتبال در حالت افقی بهترین تجربه را دارد — برای دیدنِ کل زمین، گوشی را بچرخانید.',
+      'مجیک فوتبال در حالت افقی بهترین تجربه را دارد — برای دیدن نمای کامل ورزشگاه سه‌بعدی، گوشی را بچرخانید.',
     rotateContinue: 'ادامه در همین حالت',
   },
 };
@@ -358,7 +356,10 @@ export function loadLang(): Lang {
     /* ignore */
   }
   try {
-    if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('fa'))
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.language?.toLowerCase().startsWith('fa')
+    )
       return 'fa';
   } catch {
     /* ignore */

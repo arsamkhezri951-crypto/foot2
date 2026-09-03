@@ -1,9 +1,7 @@
 /* Tiny synthesized WebAudio engine — no audio files, no libraries. */
 
-type Ctx = AudioContext;
-
 class Sfx {
-  private ac: Ctx | null = null;
+  private ac: AudioContext | null = null;
   private master: GainNode | null = null;
   private crowdSrc: AudioBufferSourceNode | null = null;
   private crowdGain: GainNode | null = null;
@@ -22,9 +20,8 @@ class Sfx {
           .webkitAudioContext;
       this.ac = new AC();
       this.master = this.ac.createGain();
-      this.master.gain.value = 0.5;
+      this.master.gain.value = this.muted ? 0 : 0.5;
       this.master.connect(this.ac.destination);
-      // shared noise buffer
       const len = this.ac.sampleRate * 2;
       this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
@@ -88,18 +85,23 @@ class Sfx {
   }
 
   kick(power = 0.5) {
-    this.tone('sine', 170 + power * 60, 48, 0.14, 0.55 + power * 0.35);
-    this.noise(0.08, 0.25 + power * 0.25, 2600, 0.8);
+    this.tone('sine', 170 + power * 70, 46, 0.15, 0.5 + power * 0.4);
+    this.noise(0.08, 0.22 + power * 0.28, 2600, 0.8);
   }
 
   pass() {
-    this.tone('triangle', 520, 760, 0.09, 0.22);
+    this.tone('triangle', 520, 780, 0.09, 0.22);
     this.noise(0.05, 0.12, 3200, 1);
   }
 
+  dash() {
+    this.tone('sawtooth', 220, 520, 0.14, 0.12);
+    this.noise(0.12, 0.1, 1800, 0.6);
+  }
+
   bounce(v: number) {
-    const p = Math.min(1, v / 600);
-    this.tone('sine', 130 + p * 40, 55, 0.09, 0.18 + p * 0.2);
+    const p = Math.min(1, v / 900);
+    this.tone('sine', 130 + p * 40, 55, 0.09, 0.16 + p * 0.2);
   }
 
   save() {
@@ -142,13 +144,12 @@ class Sfx {
     const f = this.ac.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.setValueAtTime(500, this.ac.currentTime);
-    f.frequency.linearRampToValueAtTime(1400, this.ac.currentTime + 0.35);
+    f.frequency.linearRampToValueAtTime(1500, this.ac.currentTime + 0.35);
     f.frequency.linearRampToValueAtTime(400, this.ac.currentTime + 1.5);
     src.connect(f);
     f.connect(g);
     src.start();
     src.stop(this.ac.currentTime + 1.6);
-    // stadium horn stab
     this.tone('sawtooth', 233, 233, 0.5, 0.1);
     this.tone('sawtooth', 311, 311, 0.5, 0.08);
   }
