@@ -68,6 +68,15 @@ export interface Dict {
   aboutName: string;
   aboutClass: string;
   aboutContact: string;
+  /* publish */
+  publish: string;
+  publishTitle: string;
+  publishIntro: string;
+  publishSteps: HelpItem[];
+  publishCmdsTitle: string;
+  publishCopy: string;
+  publishCopied: string;
+  ariaPublish: string;
   /* orientation */
   rotateTitle: string;
   rotateText: string;
@@ -197,6 +206,10 @@ export const STR: Record<Lang, Dict> = {
         body: 'The speaker button (main menu and in-game) turns all sound effects and crowd audio on or off. The setting is saved.',
       },
       {
+        title: 'Publish',
+        body: 'Opens a short step-by-step guide (with copyable commands) for putting the game online free on GitHub Pages.',
+      },
+      {
         title: 'In-game buttons',
         body: 'Joystick at bottom-left · SHOOT / PASS / CROSS / DRIBBLE at bottom-right · pause and sound at top-right.',
       },
@@ -205,6 +218,36 @@ export const STR: Record<Lang, Dict> = {
     aboutName: 'Arsam, 11 years old, from Dubai',
     aboutClass: "Student in Dr. Aghaei's class",
     aboutContact: 'Teacher Contact:',
+    publish: 'Publish',
+    publishTitle: 'Publish the Game',
+    publishIntro:
+      'This game is 100% static (HTML + JS + CSS), so you can host it online for free on GitHub Pages in a few minutes.',
+    publishSteps: [
+      {
+        title: 'Create a repository',
+        body: 'On github.com, create a new empty repository (for example: magic-football).',
+      },
+      {
+        title: 'Upload the code',
+        body: 'Push the project folder to the repository — with Git, GitHub Desktop, or the “Upload files” button on GitHub.',
+      },
+      {
+        title: 'Build the project',
+        body: 'Run the build command. A dist folder containing the final game will be created.',
+      },
+      {
+        title: 'Deploy the dist folder',
+        body: 'Publish the dist folder to the gh-pages branch. The easiest way is the gh-pages tool command below.',
+      },
+      {
+        title: 'Enable GitHub Pages',
+        body: 'In the repository: Settings → Pages → set “Source” to the gh-pages branch. A few minutes later your game link is live!',
+      },
+    ],
+    publishCmdsTitle: 'Commands',
+    publishCopy: 'Copy',
+    publishCopied: 'Copied!',
+    ariaPublish: 'How to publish the game',
     rotateTitle: 'Rotate your phone',
     rotateText:
       'MAGIC FOOTBALL plays best in landscape — turn your phone sideways for the full 3D stadium view.',
@@ -332,6 +375,10 @@ export const STR: Record<Lang, Dict> = {
         body: 'دکمه بلندگو (در منو و داخل بازی) همه افکت‌های صوتی و صدای تماشاگران را روشن یا خاموش می‌کند. این تنظیم ذخیره می‌شود.',
       },
       {
+        title: 'انتشار بازی (Publish)',
+        body: 'یک راهنمای کوتاه و مرحله‌به‌مرحله (با دستورهایی که می‌شود کپی کرد) برای آنلاین‌کردن رایگان بازی روی GitHub Pages باز می‌کند.',
+      },
+      {
         title: 'دکمه‌های داخل بازی',
         body: 'جوی‌استیک پایین چپ · دکمه‌های شوت / پاس / سانتر / دریبل پایین راست · توقف و صدا بالا راست قرار دارند.',
       },
@@ -340,6 +387,36 @@ export const STR: Record<Lang, Dict> = {
     aboutName: 'آرسام، 11 ساله از دبی',
     aboutClass: 'از هنرجویان کلاس خانم دکتر آقایی',
     aboutContact: 'شماره استاد:',
+    publish: 'انتشار بازی',
+    publishTitle: 'انتشار بازی روی اینترنت',
+    publishIntro:
+      'این بازی کاملاً استاتیک است (HTML + JS + CSS) و می‌توانید در چند دقیقه، رایگان، روی GitHub Pages منتشرش کنید.',
+    publishSteps: [
+      {
+        title: 'ساخت ریپازیتوری',
+        body: 'در github.com یک ریپازیتوری جدید و خالی بسازید (مثلاً با نام magic-football).',
+      },
+      {
+        title: 'آپلود کدها',
+        body: 'پوشه پروژه را داخل ریپازیتوری بفرستید — با Git یا GitHub Desktop یا دکمه «Upload files» در خود گیت‌هاب.',
+      },
+      {
+        title: 'بیلد گرفتن',
+        body: 'دستور بیلد را اجرا کنید تا پوشه dist شامل نسخه نهایی بازی ساخته شود.',
+      },
+      {
+        title: 'انتشار پوشه dist',
+        body: 'پوشه dist را روی شاخه gh-pages منتشر کنید. ساده‌ترین راه، دستور ابزار gh-pages در پایین همین صفحه است.',
+      },
+      {
+        title: 'فعال‌کردن GitHub Pages',
+        body: 'در ریپازیتوری: Settings → Pages → گزینه «Source» را روی شاخه gh-pages بگذارید. چند دقیقه بعد لینک بازی شما آنلاین می‌شود!',
+      },
+    ],
+    publishCmdsTitle: 'دستورها',
+    publishCopy: 'کپی',
+    publishCopied: 'کپی شد!',
+    ariaPublish: 'راهنمای انتشار بازی',
     rotateTitle: 'گوشی را بچرخانید',
     rotateText:
       'مجیک فوتبال در حالت افقی بهترین تجربه را دارد — برای دیدن نمای کامل ورزشگاه سه‌بعدی، گوشی را بچرخانید.',

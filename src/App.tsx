@@ -111,6 +111,13 @@ const IconPhone = ({ s = 16 }: { s?: number }) => (
     <path d="M5 4h4l1.8 4.4-2.2 1.7a13.6 13.6 0 0 0 5.3 5.3l1.7-2.2L20 15v4a2 2 0 0 1-2.2 2A16.8 16.8 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />
   </svg>
 );
+const IconRocket = ({ s = 18 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 2.5c3.5 1.8 5.5 5.2 5.5 9.2l-2.3 2.3H8.8L6.5 11.7c0-4 2-7.4 5.5-9.2Z" fill="currentColor" stroke="none" opacity="0.92" />
+    <path d="M8.8 14 6 16.8M15.2 14 18 16.8M12 14v5.5" />
+    <circle cx="12" cy="8.4" r="1.7" fill="#0d1b33" stroke="none" />
+  </svg>
+);
 const IconRotate = ({ s = 44 }: { s?: number }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <rect x="7" y="3" width="10" height="18" rx="2.4" />
@@ -509,6 +516,105 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
   );
 }
 
+/* ================= publish guide ================= */
+function CmdBlock({
+  cmd,
+  copyLabel,
+  copiedLabel,
+}: {
+  cmd: string;
+  copyLabel: string;
+  copiedLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      setCopied(true);
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = cmd;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopied(true);
+      } catch {
+        /* clipboard unavailable */
+      }
+    }
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+  return (
+    <div
+      className="flex items-center gap-2 rounded-xl px-3 py-2 mt-2"
+      style={{ background: '#0a1322', border: '1px solid rgba(90,140,220,0.35)' }}
+    >
+      <code
+        className="flex-1 min-w-0 overflow-x-auto text-[13px] font-bold py-1"
+        style={{
+          direction: 'ltr',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          color: '#7dffb0',
+        }}
+      >
+        {cmd}
+      </code>
+      <button
+        className="shrink-0 font-body font-bold text-[12px] px-3 py-2 rounded-full"
+        style={{
+          minWidth: 76,
+          cursor: 'pointer',
+          color: copied ? '#7dffb0' : '#cfe0fa',
+          background: copied
+            ? 'rgba(18,58,34,0.85)'
+            : 'linear-gradient(180deg,#24406e,#16294a)',
+          border: copied
+            ? '1px solid rgba(125,255,176,0.55)'
+            : '1px solid rgba(125,184,255,0.45)',
+          transition: 'all 0.15s ease',
+        }}
+        onClick={() => {
+          sfx.init();
+          sfx.click();
+          void copy();
+        }}
+      >
+        {copied ? copiedLabel : copyLabel}
+      </button>
+    </div>
+  );
+}
+
+function PublishModal({ t, onClose }: { t: Dict; onClose: () => void }) {
+  return (
+    <Modal
+      title={t.publishTitle}
+      icon={<IconRocket s={20} />}
+      onClose={onClose}
+      closeLabel={t.close}
+    >
+      <div className="text-[13.5px] leading-7 mb-2" style={{ color: '#9db4dc' }}>
+        {t.publishIntro}
+      </div>
+      {t.publishSteps.map((s, i) => (
+        <HelpRow key={s.title} n={i + 1} title={s.title} body={s.body} />
+      ))}
+      <div className="mt-4 mb-0.5 font-display text-[16px]" style={{ color: '#ffffff' }}>
+        {t.publishCmdsTitle}
+      </div>
+      <CmdBlock cmd="npm run build" copyLabel={t.publishCopy} copiedLabel={t.publishCopied} />
+      <CmdBlock cmd="npx gh-pages -d dist" copyLabel={t.publishCopy} copiedLabel={t.publishCopied} />
+      <div className="pt-3 pb-1 text-center text-[11.5px]" style={{ color: '#5b7396', direction: 'ltr' }}>
+        https://USERNAME.github.io/magic-football/
+      </div>
+    </Modal>
+  );
+}
+
 /* ================= language toggle ================= */
 function LangToggle({ lang, setLang, t }: { lang: Lang; setLang: (l: Lang) => void; t: Dict }) {
   return (
@@ -615,7 +721,7 @@ export default function App() {
   const [result, setResult] = useState<ResultT | null>(null);
   const [lang, setLang] = useState<Lang>(() => loadLang());
   const [muted, setMuted] = useState<boolean>(() => loadMuted());
-  const [modal, setModal] = useState<null | 'help' | 'about'>(null);
+  const [modal, setModal] = useState<null | 'help' | 'about' | 'publish'>(null);
   const portrait = usePortrait();
   const [rotateDismissed, setRotateDismissed] = useState(false);
 
@@ -954,6 +1060,15 @@ export default function App() {
                 <span style={{ color: '#ffd23f' }}><IconInfo /></span>
                 {t.about}
               </button>
+              <button
+                className="menu-btn font-body font-bold text-[13px] px-4 py-2.5"
+                style={{ color: '#cfe0fa', background: 'rgba(13,27,51,0.85)', border: '1px solid rgba(90,140,220,0.45)' }}
+                onClick={ui(() => setModal('publish'))}
+                aria-label={t.ariaPublish}
+              >
+                <span style={{ color: '#7dffb0' }}><IconRocket /></span>
+                {t.publish}
+              </button>
               <LangToggle lang={lang} setLang={setLang} t={t} />
               <button
                 className="menu-btn"
@@ -1005,6 +1120,7 @@ export default function App() {
       {/* ==================== MODALS ==================== */}
       {modal === 'help' && <HelpModal t={t} onClose={ui(() => setModal(null))} />}
       {modal === 'about' && <AboutModal t={t} onClose={ui(() => setModal(null))} />}
+      {modal === 'publish' && <PublishModal t={t} onClose={ui(() => setModal(null))} />}
     </div>
   );
 }
