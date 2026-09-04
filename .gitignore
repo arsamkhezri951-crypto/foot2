@@ -5,60 +5,61 @@ node_modules/
 # Build outputs
 dist/
 build/
-target/
-
-# TypeScript
-*.tsbuildinfo
-*.js.map
-*.jsx.map
-*.ts.map
+coverage/
+htmlcov/
 
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Logs
 *.log
 
 # Temporary files
 *.tmp
-*.temp
-*~
+*.swp
 
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDE files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Coverage
-coverage/
-htmlcov/
-*.coverage
-
-# Python cache (if present)
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-
-# MyPy
-.mypy_cache/
-
-# Pytest
-.pytest_cache/
-
-# Virtual environments
+env/
 venv/
 .venv/
-env/
-ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+
+# Compiled and binary files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# OS generated files
+.DS_Store
+Thumbs.db
 
 # Compressed files
 *.zip
@@ -69,10 +70,25 @@ ENV/
 *.xz
 *.7z
 *.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
 *.Z
 *.lz
 *.lzo
 *.tar.gz
 *.tar.bz2
 *.tar.xz
+*.tar.zst
+
+# Vite specific
+!.vite/
+vite.config.ts
+
+# TypeScript
+*.tsbuildinfo
 ```
