@@ -885,18 +885,57 @@ function drawStands(ctx: CanvasRenderingContext2D, P: Proj, g: GameView) {
   buildCrowd();
   buildSpecks();
 
-  // stand base blocks
+  // stand blocks — two tiers each, with a lit rim for a stadium-bowl feel
   const apron = 60;
-  const blocks: [number, number, number, number, number, string][] = [
-    [-MARGIN, -MARGIN + apron, PITCH_W + 2 * MARGIN, MARGIN * 0.62 - apron, 26, '#14213a'], // north
-    [-MARGIN, PITCH_H + MARGIN * 0.38, PITCH_W + 2 * MARGIN, MARGIN * 0.62 - apron, 26, '#111d33'], // south
-    [-MARGIN, -MARGIN * 0.3, MARGIN * 0.55, PITCH_H + MARGIN * 0.6, 26, '#131f37'], // west
-    [PITCH_W + MARGIN * 0.45, -MARGIN * 0.3, MARGIN * 0.55, PITCH_H + MARGIN * 0.6, 26, '#131f37'], // east
+  const blocks: [number, number, number, number, number, string, string][] = [
+    [-MARGIN, -MARGIN + apron, PITCH_W + 2 * MARGIN, MARGIN * 0.62 - apron, 26, '#14213a', '#1b2c4d'], // north
+    [-MARGIN, PITCH_H + MARGIN * 0.38, PITCH_W + 2 * MARGIN, MARGIN * 0.62 - apron, 26, '#111d33', '#182842'], // south
+    [-MARGIN, -MARGIN * 0.3, MARGIN * 0.55, PITCH_H + MARGIN * 0.6, 26, '#131f37', '#1a2a47'], // west
+    [PITCH_W + MARGIN * 0.45, -MARGIN * 0.3, MARGIN * 0.55, PITCH_H + MARGIN * 0.6, 26, '#131f37', '#1a2a47'], // east
   ];
-  for (const [bx, by, bw, bh, h, col] of blocks) {
+  for (const [bx, by, bw, bh, h, col, col2] of blocks) {
     fillQuad(ctx, null as unknown as CamMat, [
       [bx, by, h], [bx + bw, by, h], [bx + bw, by + bh, h], [bx, by + bh, h],
     ], col);
+    // upper tier (stepped inward and higher)
+    const ix = bx + 22, iy = by + 22, iw = bw - 44, ih = bh - 44;
+    if (iw > 10 && ih > 10) {
+      fillQuad(ctx, null as unknown as CamMat, [
+        [ix, iy, h + 21], [ix + iw, iy, h + 21], [ix + iw, iy + ih, h + 21], [ix, iy + ih, h + 21],
+      ], col2);
+      // lit rim on the upper tier edge
+      ctx.strokeStyle = 'rgba(150,180,230,0.22)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      const c0 = GPROJ!.P(ix, iy, h + 21);
+      const c1 = GPROJ!.P(ix + iw, iy, h + 21);
+      const c2 = GPROJ!.P(ix + iw, iy + ih, h + 21);
+      const c3 = GPROJ!.P(ix, iy + ih, h + 21);
+      if (c0 && c1 && c2 && c3) {
+        ctx.moveTo(c0.x, c0.y);
+        ctx.lineTo(c1.x, c1.y);
+        ctx.lineTo(c2.x, c2.y);
+        ctx.lineTo(c3.x, c3.y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+  }
+
+  // roof fascia strips on the far + side stands (suggests a covered bowl)
+  const roofCol = '#152540';
+  const roofEdge = 'rgba(170,200,245,0.42)';
+  fillQuad(ctx, null as unknown as CamMat, [
+    [-MARGIN, PITCH_H + MARGIN - 8, 62], [PITCH_W + MARGIN, PITCH_H + MARGIN - 8, 62],
+    [PITCH_W + MARGIN, PITCH_H + MARGIN + 24, 62], [-MARGIN, PITCH_H + MARGIN + 24, 62],
+  ], roofCol);
+  line3(ctx, -MARGIN, PITCH_H + MARGIN - 8, 62, PITCH_W + MARGIN, PITCH_H + MARGIN - 8, 62, roofEdge, 2.4);
+  for (const rx of [-MARGIN, PITCH_W + MARGIN - 26]) {
+    fillQuad(ctx, null as unknown as CamMat, [
+      [rx, -MARGIN * 0.3, 62], [rx + 26, -MARGIN * 0.3, 62],
+      [rx + 26, PITCH_H + MARGIN * 0.55, 62], [rx, PITCH_H + MARGIN * 0.55, 62],
+    ], roofCol);
+    line3(ctx, rx + (rx < 0 ? 26 : 0), -MARGIN * 0.3, 62, rx + (rx < 0 ? 26 : 0), PITCH_H + MARGIN * 0.55, 62, roofEdge, 2);
   }
 
   // crowd (animated)
@@ -911,21 +950,124 @@ function drawStands(ctx: CanvasRenderingContext2D, P: Proj, g: GameView) {
     ctx.fill();
   }
 
-  // advertising boards around the pitch
-  const boards: [number, number, number, string][] = [];
+  // technical-area dugouts on the near touchline (behind the near boards)
+  const dugouts: [number, number][] = [
+    [PITCH_W / 2 - 218, PITCH_W / 2 - 98],
+    [PITCH_W / 2 + 98, PITCH_W / 2 + 218],
+  ];
+  for (const [x0, x1] of dugouts) {
+    const yF = -46, yB = -92, hh = 54;
+    fillQuad(ctx, null as unknown as CamMat, [[x0, yB, 0], [x1, yB, 0], [x1, yB, hh], [x0, yB, hh]], '#101c33');
+    fillQuad(ctx, null as unknown as CamMat, [[x0, yF, 0], [x0, yB, 0], [x0, yB, hh], [x0, yF, hh]], '#0d1729');
+    fillQuad(ctx, null as unknown as CamMat, [[x1, yF, 0], [x1, yB, 0], [x1, yB, hh], [x1, yF, hh]], '#0d1729');
+    const staffCols = ['#c33d54', '#3d6cc3', '#e0a53f', '#4fc377'];
+    for (let i = 0; i < 4; i++) {
+      const sp = P(x0 + (x1 - x0) * (0.18 + 0.21 * i), yB + 15, 20);
+      if (!sp) continue;
+      ctx.fillStyle = staffCols[i];
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, Math.max(1.4, 3.4 * sp.s), 0, TAU);
+      ctx.fill();
+    }
+    fillQuad(ctx, null as unknown as CamMat, [[x0, yF, 0], [x1, yF, 0], [x1, yF, hh], [x0, yF, hh]], 'rgba(150,200,255,0.10)');
+    fillQuad(ctx, null as unknown as CamMat, [[x0 - 6, yF - 4, hh], [x1 + 6, yF - 4, hh], [x1 + 6, yB, hh], [x0 - 6, yB, hh]], '#1d3050');
+    line3(ctx, x0 - 6, yF - 4, hh, x1 + 6, yF - 4, hh, 'rgba(170,200,245,0.5)', 2.2);
+  }
+
+  // advertising boards — premium LED-style panels (all sponsors fictional)
+  const SPONSORS = ['NOVA AIR', 'PIXEL+', 'ORBITA', 'KICKZ', 'VELO', 'GALAXO', 'TURBO', 'BOLT FC', 'QUASAR', 'ZAPP!'];
+  const boardCols = ['#1b5fd6', '#e02f45', '#17994c', '#e08b12'];
+  const drawBoard = (
+    pts: [number, number, number][],
+    col: string,
+    name: string | null
+  ) => {
+    const p0 = P(...pts[0]), p1 = P(...pts[1]), p2 = P(...pts[2]), p3 = P(...pts[3]);
+    if (!p0 || !p1 || !p2 || !p3) return;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    ctx.fillStyle = col;
+    ctx.fill();
+    // top-lit sheen
+    const sh = ctx.createLinearGradient(
+      (p3.x + p2.x) / 2, (p3.y + p2.y) / 2,
+      (p0.x + p1.x) / 2, (p0.y + p1.y) / 2
+    );
+    sh.addColorStop(0, 'rgba(255,255,255,0.3)');
+    sh.addColorStop(0.55, 'rgba(255,255,255,0.05)');
+    sh.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = sh;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(6,14,28,0.55)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    // bright top edge
+    ctx.beginPath();
+    ctx.moveTo(p3.x, p3.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = 'rgba(240,246,255,0.75)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (name) {
+      const wpx = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      if (wpx > 42) {
+        ctx.save();
+        ctx.transform(
+          (p1.x - p0.x) / 100, (p1.y - p0.y) / 100,
+          (p3.x - p0.x) / 100, (p3.y - p0.y) / 100,
+          p0.x, p0.y
+        );
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fs = 34;
+        ctx.font = `900 ${fs}px Rubik, sans-serif`;
+        const w = ctx.measureText(name).width;
+        if (w > 88) {
+          fs = Math.max(20, Math.floor((fs * 88) / w));
+          ctx.font = `900 ${fs}px Rubik, sans-serif`;
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.94)';
+        ctx.fillText(name, 50, 54);
+        ctx.restore();
+      }
+    }
+  };
+
   const bw = 150;
   for (let i = 0; i < 10; i++) {
-    const cols = ['#1b5fd6', '#e02f45', '#17994c', '#e08b12'];
-    boards.push([i * (PITCH_W / 10) + 20, -34, bw, cols[i % 4]]);
-    boards.push([i * (PITCH_W / 10) + 20, PITCH_H + 12, bw, cols[(i + 2) % 4]]);
+    const x0 = i * (PITCH_W / 10) + 20;
+    // far boards: sponsor faces toward the camera
+    drawBoard(
+      [[x0, PITCH_H + 12, 0], [x0 + bw, PITCH_H + 12, 0], [x0 + bw, PITCH_H + 12, 26], [x0, PITCH_H + 12, 26]],
+      boardCols[(i + 2) % 4],
+      SPONSORS[i]
+    );
+    // near boards: clean panel backs with seams
+    drawBoard(
+      [[x0, -34, 0], [x0 + bw, -34, 0], [x0 + bw, -34, 26], [x0, -34, 26]],
+      boardCols[i % 4],
+      null
+    );
+    line3(ctx, x0 + bw * 0.33, -34, 3, x0 + bw * 0.33, -34, 23, 'rgba(6,14,28,0.28)', 1.4);
+    line3(ctx, x0 + bw * 0.66, -34, 3, x0 + bw * 0.66, -34, 23, 'rgba(6,14,28,0.28)', 1.4);
   }
-  for (const [bx, by, w2, col] of boards) {
-    fillQuad(ctx, null as unknown as CamMat, [
-      [bx, by, 0], [bx + w2, by, 0], [bx + w2, by, 26], [bx, by, 26],
-    ], col);
-    fillQuad(ctx, null as unknown as CamMat, [
-      [bx, by, 26], [bx + w2, by, 26], [bx + w2, by + (by < 0 ? -6 : 6), 26], [bx, by + (by < 0 ? -6 : 6), 26],
-    ], 'rgba(255,255,255,0.25)');
+  // boards behind each goal
+  for (let i = 0; i < 5; i++) {
+    const y0 = CY - 248 + i * 100;
+    drawBoard(
+      [[-34, y0, 0], [-34, y0 + 92, 0], [-34, y0 + 92, 26], [-34, y0, 26]],
+      boardCols[(i + 1) % 4],
+      null
+    );
+    drawBoard(
+      [[PITCH_W + 12, y0, 0], [PITCH_W + 12, y0 + 92, 0], [PITCH_W + 12, y0 + 92, 26], [PITCH_W + 12, y0, 26]],
+      boardCols[(i + 3) % 4],
+      null
+    );
   }
 
   // floodlight towers at the four corners
@@ -1000,6 +1142,44 @@ function drawParticles(ctx: CanvasRenderingContext2D, P: Proj, g: GameView) {
   ctx.globalAlpha = 1;
 }
 
+/* ---------------- corner flags (waving) ---------------- */
+function drawCornerFlags(ctx: CanvasRenderingContext2D, g: GameView) {
+  const P = GPROJ!.P;
+  const t = g.tGlobal;
+  const corners: [number, number, number][] = [
+    [-10, -10, 1],
+    [PITCH_W + 10, -10, -1],
+    [-10, PITCH_H + 10, 1],
+    [PITCH_W + 10, PITCH_H + 10, -1],
+  ];
+  corners.forEach(([x, y, sgn], i) => {
+    const bp = P(x, y, 0);
+    if (bp) {
+      ctx.fillStyle = 'rgba(6,22,12,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(bp.x, bp.y, Math.max(1.5, 4 * bp.s), Math.max(0.8, 1.8 * bp.s), 0, 0, TAU);
+      ctx.fill();
+    }
+    line3(ctx, x, y, 0, x, y, 58, '#f5f8ff', 2.6);
+    const wave = Math.sin(t * 5 + i * 1.7) * 3.5;
+    const a = P(x, y, 58);
+    const b = P(x, y, 45);
+    const c = P(x + sgn * (17 + wave), y, 52 + wave * 0.3);
+    if (a && b && c) {
+      ctx.fillStyle = '#ffd23f';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(120,80,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  });
+}
+
 /* ================= main frame ================= */
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
@@ -1021,6 +1201,7 @@ export function renderFrame(
   // draw goals behind players when appropriate (left goal can be in front of far players)
   drawGoal(ctx, g, -1);
   drawGoal(ctx, g, 1);
+  drawCornerFlags(ctx, g);
 
   // depth-sort players + ball (far → near: larger world y = nearer? we use camera depth)
   const items: { d: number; draw: () => void }[] = [];
