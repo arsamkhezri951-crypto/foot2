@@ -215,6 +215,7 @@ function buildCrowd() {
 
 function drawWorld(ctx: CanvasRenderingContext2D, P: Proj, g: GameView, vw: number, vh: number) {
   buildCrowd();
+  buildSpecks();
 
   // sky / night gradient
   const sky = ctx.createLinearGradient(0, 0, 0, vh);
