@@ -26,61 +26,66 @@ interface CamMat {
 }
 
 const CAM_H = 860; // camera height above the pitch
-const PITCH_ANG = 0.76; // radians — steep broadcast angle
-const FOV = 0.62; // vertical field factor
+const TILT = 0.5; // radians below horizontal — broadcast-style look-down
+const BACK = 1550; // camera ground anchor sits this far behind the focus point
 
 function makeProjection(g: GameView, vw: number, vh: number): { P: Proj; m: CamMat } {
-  // base scale: fit the pitch nicely on screen at zoom 1
-  const base = Math.min(vw / 1500, vh / 1150) * 1.32;
+  /* Broadcast camera: ground anchor at (cam.x, cam.y - BACK), height CAM_H,
+     looking forward (+y) and down by TILT. Correct perspective division:
+     points ahead of the camera project below the horizon; the focus point
+     (where the ball usually is) is anchored at ~60% of the viewport height,
+     and zoom scales around that anchor.                        */
+  const sinA = Math.sin(TILT);
+  const cosA = Math.cos(TILT);
   const zoom = g.cam.zoom;
-  const f = base * zoom;
-  const cosA = Math.cos(PITCH_ANG);
-  const sinA = Math.sin(PITCH_ANG);
 
-  // camera looks at (cam.x, cam.y) on the ground
+  // depth of the focus plane (ball plane) from the camera
+  const D_BALL = BACK * sinA + CAM_H * cosA;
+
+  // focal length: wide screens are width-constrained (frame ~1900 world
+  // units across), tall/portrait screens are height-constrained (the ground
+  // strip must cover the whole viewport). Result: pitch always fills screen.
+  const F = Math.max(vh * 0.44, (vw * D_BALL) / 1900) * zoom;
+
   const cx = g.cam.x;
-  const cy = g.cam.y;
+  const camY = g.cam.y - BACK;
 
-  const sx = vw / 2;
-  const sy = vh * 0.56; // horizon sits a bit above center
+  // vertical camera-space offset of the focus point → anchor it at 60% vh
+  const ballDrop = (BACK * cosA - CAM_H * sinA) / D_BALL;
+  const sy = vh * 0.6 + F * ballDrop;
 
   const P: Proj = (x, y, z) => {
-    // translate so camera focus is origin
     const dx = x - cx;
-    const dy = y - cy;
-    const dz = z - CAM_H; // camera is up high → z relative
+    const dy = y - camY; // forward distance from the camera ground anchor
+    const dz = CAM_H - z; // camera height above the point
 
-    // rotate around X axis by pitch angle: (y,z) plane
-    const ry = dy * cosA - dz * sinA;
-    const rz = dy * sinA + dz * cosA;
-    // depth forward = -rz (camera looks along -z after rotation? we want positive depth ahead)
-    const depth = -rz;
+    const depth = dy * sinA + dz * cosA;
     if (depth < 24) return null; // behind camera / too close
-    const scale = (f * FOV * 1000) / depth;
-    const px = sx + dx * scale;
-    const py = sy - ry * scale * (1 / (FOV * 1000)) * (FOV * 1000) * 0 + sy * 0; // placeholder
-    // simpler: project ry with the same perspective divisor
-    const pyv = sy - (ry / depth) * f * FOV * 1000;
-    void py;
-    return { x: px, y: pyv, s: scale / (base * 1), d: depth };
+    const s = F / depth; // screen px per world unit at this depth
+    return {
+      x: vw / 2 + dx * s,
+      y: sy - (dy * cosA - dz * sinA) * s,
+      s,
+      d: depth,
+    };
   };
 
   // affine ground matrix for drawing ellipses/arcs on the pitch plane
-  // ground point (x,y,0) → screen. Derive from P at z=0.
-  const p0 = P(0, 0, 0)!;
-  const px1 = P(10, 0, 0)!;
-  const py1 = P(0, 10, 0)!;
-  // local approximation is not affine globally under perspective; we instead
-  // provide a per-point helper below (strokeArc). m is used only for quick
-  // screen-space sizing.
-  const m: CamMat = {
-    a: (px1.x - p0.x) / 10,
-    b: 0,
-    c: 0,
-    d: (py1.y - p0.y) / 10,
-    e: p0.x,
-    f: p0.y,
-  };
+  // ground point (x,y,0) → screen. Derive from P at z=0 (null-guarded).
+  const p0 = P(0, 0, 0);
+  const px1 = P(10, 0, 0);
+  const py1 = P(0, 10, 0);
+  const m: CamMat =
+    p0 && px1 && py1
+      ? {
+          a: (px1.x - p0.x) / 10,
+          b: 0,
+          c: 0,
+          d: (py1.y - p0.y) / 10,
+          e: p0.x,
+          f: p0.y,
+        }
+      : { a: 1, b: 0, c: 0, d: 1, e: vw / 2, f: vh / 2 };
   return { P, m };
 }
 
@@ -881,7 +886,7 @@ export function renderFrame(
   drawParticles(ctx, P, g);
 
   // distance fog toward the far end for depth
-  const far = P(PITCH_W / 2, -MARGIN, 0);
+  const far = P(PITCH_W / 2, PITCH_H + MARGIN, 0);
   if (far) {
     const fog = ctx.createLinearGradient(0, far.y - 40, 0, far.y + 220);
     fog.addColorStop(0, 'rgba(8,14,28,0.5)');

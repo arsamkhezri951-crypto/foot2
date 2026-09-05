@@ -1,6 +1,6 @@
 netlify-deploy.zip — 5 files, 74.3 KB (deflate, entries at archive root)
   _redirects
-  assets/index-BU0zGC_r.js
+  assets/index-CijJq9Z3.js
   assets/index-DBfgJfni.css
   favicon.svg
   index.html
