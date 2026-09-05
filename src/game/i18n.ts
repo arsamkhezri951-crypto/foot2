@@ -84,6 +84,81 @@ export interface Dict {
   rotateTitle: string;
   rotateText: string;
   rotateContinue: string;
+  /* main menu (numbered) */
+  mPlay: string;
+  mPlaySub: string;
+  mCareer: string;
+  mCareerSub: string;
+  mCup: string;
+  mCupSub: string;
+  mClubs: string;
+  mClubsSub: string;
+  mPlayers: string;
+  mPlayersSub: string;
+  mSettings: string;
+  mSettingsSub: string;
+  /* career */
+  career: string;
+  seasonLbl: string;
+  standings: string;
+  matchday: string;
+  nextMatch: string;
+  playMatchBtn: string;
+  chooseClub: string;
+  yourClub: string;
+  resetCareer: string;
+  confirmYes: string;
+  confirmNo: string;
+  champion: string;
+  finalTable: string;
+  yourPosition: string;
+  newSeason: string;
+  sPlayed: string;
+  sPoints: string;
+  sWins: string;
+  sDraws: string;
+  sLosses: string;
+  sGF: string;
+  sGA: string;
+  sGD: string;
+  clubCol: string;
+  colP: string;
+  colW: string;
+  colD: string;
+  colL: string;
+  colGD: string;
+  colPTS: string;
+  /* cup */
+  newCupRun: string;
+  newCup: string;
+  quarterFinal: string;
+  semiFinal: string;
+  cupFinal: string;
+  cupChampion: string;
+  eliminated: string;
+  wonOnPens: string;
+  vsLbl: string;
+  /* clubs & players */
+  theEightClubs: string;
+  ovrLbl: string;
+  attack: string;
+  midfield: string;
+  defense: string;
+  gkKitLbl: string;
+  homeKit: string;
+  awayKit: string;
+  topPlayers: string;
+  starPlayers: string;
+  /* settings screen */
+  settings: string;
+  audioSec: string;
+  gameSec: string;
+  controlsSec: string;
+  languageSec: string;
+  matchDuration: string;
+  kbControls: string;
+  touchControls: string;
+  continueBtn: string;
 }
 
 export const STR: Record<Lang, Dict> = {
@@ -229,6 +304,76 @@ export const STR: Record<Lang, Dict> = {
     aboutClass: "Student in Dr. Aghaei's class",
     aboutContact: 'Teacher Contact:',
     version: 'Version 1.2.0',
+    mPlay: 'PLAY MATCH',
+    mPlaySub: 'Quick 3-minute arcade match',
+    mCareer: 'CAREER',
+    mCareerSub: 'Build your legacy · 7 matchday season',
+    mCup: 'TOURNAMENT',
+    mCupSub: 'Knockout cup · QF → SF → Final',
+    mClubs: 'CLUBS',
+    mClubsSub: 'Teams · Kits · Ratings',
+    mPlayers: 'PLAYERS',
+    mPlayersSub: 'Star men of the league',
+    mSettings: 'SETTINGS',
+    mSettingsSub: 'Game · Sound · Language',
+    career: 'CAREER',
+    seasonLbl: 'SEASON 1',
+    standings: 'LEAGUE TABLE',
+    matchday: 'MATCHDAY',
+    nextMatch: 'NEXT MATCH',
+    playMatchBtn: 'PLAY MATCH',
+    chooseClub: 'CHOOSE YOUR CLUB',
+    yourClub: 'YOU',
+    resetCareer: 'RESET CAREER',
+    confirmYes: 'CONFIRM',
+    confirmNo: 'CANCEL',
+    champion: 'CHAMPION',
+    finalTable: 'FINAL TABLE',
+    yourPosition: 'YOUR POSITION',
+    newSeason: 'NEW SEASON',
+    sPlayed: 'PLAYED',
+    sPoints: 'POINTS',
+    sWins: 'WINS',
+    sDraws: 'DRAWS',
+    sLosses: 'LOSSES',
+    sGF: 'GOALS FOR',
+    sGA: 'GOALS VS',
+    sGD: 'GOAL DIFF',
+    clubCol: 'CLUB',
+    colP: 'P',
+    colW: 'W',
+    colD: 'D',
+    colL: 'L',
+    colGD: 'GD',
+    colPTS: 'PTS',
+    newCupRun: 'NEW CUP RUN',
+    newCup: 'NEW CUP',
+    quarterFinal: 'QUARTER FINAL',
+    semiFinal: 'SEMI FINAL',
+    cupFinal: 'FINAL',
+    cupChampion: 'CUP CHAMPION',
+    eliminated: 'ELIMINATED',
+    wonOnPens: 'WON ON PENALTIES',
+    vsLbl: 'VS',
+    theEightClubs: 'THE EIGHT CLUBS',
+    ovrLbl: 'OVR',
+    attack: 'ATTACK',
+    midfield: 'MIDFIELD',
+    defense: 'DEFENSE',
+    gkKitLbl: 'GK KIT',
+    homeKit: 'HOME',
+    awayKit: 'AWAY',
+    topPlayers: 'SQUAD',
+    starPlayers: 'STAR PLAYERS',
+    settings: 'SETTINGS',
+    audioSec: 'AUDIO',
+    gameSec: 'GAME',
+    controlsSec: 'CONTROLS',
+    languageSec: 'LANGUAGE',
+    matchDuration: 'MATCH DURATION',
+    kbControls: 'Keyboard: WASD / arrows move · SPACE shoot (hold = power) · X pass · C cross · V or SHIFT dribble · P pause.',
+    touchControls: 'Touch: joystick (left) to move · SHOOT / PASS / CROSS / DRIBBLE buttons (right) · menu button (top) for the in-match menu.',
+    continueBtn: 'CONTINUE',
     settingsTitle: 'Settings',
     masterVol: 'Master Volume',
     musicVol: 'Crowd & Music',
@@ -385,6 +530,76 @@ export const STR: Record<Lang, Dict> = {
     aboutClass: 'از هنرجویان کلاس خانم دکتر آقایی',
     aboutContact: 'شماره استاد:',
     version: 'نسخه 1.2.0',
+    mPlay: 'بازی سریع',
+    mPlaySub: 'مسابقه آرکید ۳ دقیقه‌ای',
+    mCareer: 'حرفه‌ای',
+    mCareerSub: 'افسانه‌ات را بساز · فصل ۷ هفته‌ای',
+    mCup: 'جام حذفی',
+    mCupSub: 'یک‌چهارم ← نیمه‌نهایی ← فینال',
+    mClubs: 'باشگاه‌ها',
+    mClubsSub: 'تیم‌ها · لباس‌ها · قدرت',
+    mPlayers: 'بازیکنان',
+    mPlayersSub: 'ستاره‌های لیگ',
+    mSettings: 'تنظیمات',
+    mSettingsSub: 'بازی · صدا · زبان',
+    career: 'حرفه‌ای',
+    seasonLbl: 'فصل ۱',
+    standings: 'جدول لیگ',
+    matchday: 'هفته',
+    nextMatch: 'بازی بعدی',
+    playMatchBtn: 'شروع مسابقه',
+    chooseClub: 'باشگاه خود را انتخاب کنید',
+    yourClub: 'شما',
+    resetCareer: 'شروع دوباره فصل',
+    confirmYes: 'تأیید',
+    confirmNo: 'انصراف',
+    champion: 'قهرمان',
+    finalTable: 'جدول پایانی',
+    yourPosition: 'جایگاه شما',
+    newSeason: 'فصل جدید',
+    sPlayed: 'بازی',
+    sPoints: 'امتیاز',
+    sWins: 'برد',
+    sDraws: 'مساوی',
+    sLosses: 'باخت',
+    sGF: 'گل زده',
+    sGA: 'گل خورده',
+    sGD: 'تفاضل گل',
+    clubCol: 'باشگاه',
+    colP: 'ب',
+    colW: 'برد',
+    colD: 'مسا',
+    colL: 'باخ',
+    colGD: 'تف',
+    colPTS: 'امت',
+    newCupRun: 'جام حذفی جدید',
+    newCup: 'جام جدید',
+    quarterFinal: 'یک‌چهارم نهایی',
+    semiFinal: 'نیمه‌نهایی',
+    cupFinal: 'فینال',
+    cupChampion: 'قهرمان جام',
+    eliminated: 'حذف شدید',
+    wonOnPens: 'برد در پنالتی',
+    vsLbl: 'در برابر',
+    theEightClubs: 'هشت باشگاه',
+    ovrLbl: 'قدرت',
+    attack: 'حمله',
+    midfield: 'هافبک',
+    defense: 'دفاع',
+    gkKitLbl: 'لباس دروازه‌بان',
+    homeKit: 'خانگی',
+    awayKit: 'مهمان',
+    topPlayers: 'ترکیب تیم',
+    starPlayers: 'بازیکنان ستاره',
+    settings: 'تنظیمات',
+    audioSec: 'صدا',
+    gameSec: 'بازی',
+    controlsSec: 'کنترل‌ها',
+    languageSec: 'زبان',
+    matchDuration: 'مدت مسابقه',
+    kbControls: 'کیبورد: حرکت با WASD یا جهت‌نما · شوت با SPACE (نگه‌داشتن = قدرت) · پاس با X · سانتر با C · دریبل با V یا SHIFT · توقف با P.',
+    touchControls: 'لمسی: جوی‌استیک (چپ) برای حرکت · دکمه‌های شوت / پاس / سانتر / دریبل (راست) · دکمه منو (بالا) برای منوی داخل بازی.',
+    continueBtn: 'ادامه',
     settingsTitle: 'تنظیمات',
     masterVol: 'بلندی صدای اصلی',
     musicVol: 'صدای تماشاگران و موسیقی',

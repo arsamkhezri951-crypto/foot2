@@ -8,6 +8,38 @@ import {
 import { Game } from './game/engine';
 import { sfx } from './game/audio';
 import type { GamePhase, StatsT, Team } from './game/types';
+import { clubById } from './data/clubs';
+import {
+  MATCHDAYS,
+  completeMatchday,
+  clearCareer,
+  loadCareer,
+  saveCareer,
+  seasonOver,
+  startCareer,
+  userFixture,
+  type CareerState,
+} from './data/career';
+import {
+  completeCupStage,
+  clearCup,
+  currentOpponent,
+  loadCup,
+  saveCup,
+  startCup,
+  type CupState,
+} from './data/tournament';
+import {
+  CareerScreen,
+  ClubDetailScreen,
+  ClubsScreen,
+  CupScreen,
+  MainMenuList,
+  PlayersScreen,
+  SeasonEndScreen,
+  SettingsScreen,
+  type MenuItem,
+} from './screens';
 import {
   STR,
   loadLang,
@@ -846,7 +878,28 @@ function RotateOverlay({ t, onDismiss }: { t: Dict; onDismiss: () => void }) {
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
-  const [screen, setScreen] = useState<'menu' | 'playing'>('menu');
+  type ScreenId =
+    | 'menu'
+    | 'playing'
+    | 'career'
+    | 'cup'
+    | 'clubs'
+    | 'club'
+    | 'players'
+    | 'settings';
+  const [screen, setScreen] = useState<ScreenId>('menu');
+  const [mode, setMode] = useState<'quick' | 'career' | 'cup'>('quick');
+  const [career, setCareer] = useState<CareerState | null>(() => loadCareer());
+  const [cup, setCup] = useState<CupState | null>(() => loadCup());
+  const [duration, setDurationState] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem('magic-football:duration'));
+      return [60, 120, 180, 300].includes(v) ? v : 180;
+    } catch {
+      return 180;
+    }
+  });
+  const [detailClub, setDetailClub] = useState(0);
   const [phase, setPhase] = useState<GamePhase>('demo');
   const [hud, setHud] = useState<{ score: [number, number]; time: string }>({
     score: [0, 0],
@@ -927,18 +980,132 @@ export default function App() {
     sfx.click();
     fn();
   };
-  const play = ui(() => {
+
+  /* ------- persistence: career / cup / duration ------- */
+  useEffect(() => {
+    if (career) saveCareer(career);
+    else clearCareer();
+  }, [career]);
+  useEffect(() => {
+    if (cup) saveCup(cup);
+    else clearCup();
+  }, [cup]);
+  const setDuration = (d: number) => {
+    setDurationState(d);
+    try {
+      localStorage.setItem('magic-football:duration', String(d));
+    } catch {
+      /* non-fatal */
+    }
+  };
+  useEffect(() => {
+    gameRef.current?.setMatchDuration(duration);
+  }, [duration]);
+
+  /* ------- match flow ------- */
+  const beginMatch = () => {
     setResult(null);
     setGoalFx(null);
     setModal(null);
+    game()?.setMatchDuration(duration);
     game()?.startMatch();
     setScreen('playing');
+  };
+  const play = ui(() => {
+    beginMatch();
   });
   const toMenu = ui(() => {
     setResult(null);
     game()?.backToMenu();
     setScreen('menu');
   });
+
+  /* career: pick club → season starts → straight into matchday 1 */
+  const careerPick = (id: number) => {
+    sfx.init();
+    sfx.click();
+    setCareer(startCareer(id));
+    setMode('career');
+    beginMatch();
+  };
+  const playCareerMatch = ui(() => {
+    setMode('career');
+    beginMatch();
+  });
+
+  /* cup: pick club → draw → straight into the quarter final */
+  const cupPick = (id: number) => {
+    sfx.init();
+    sfx.click();
+    setCup(startCup(id));
+    setMode('cup');
+    beginMatch();
+  };
+  const playCupMatch = ui(() => {
+    setMode('cup');
+    beginMatch();
+  });
+
+  /* after full time: record the REAL engine result into career/cup */
+  const continueAfterResult = ui(() => {
+    if (!result) return;
+    const [g0, g1] = result.score;
+    if (mode === 'career' && career) {
+      setCareer(completeMatchday(career, g0, g1));
+      setScreen('career');
+    } else if (mode === 'cup' && cup) {
+      setCup(completeCupStage(cup, g0, g1));
+      setScreen('cup');
+    } else {
+      setScreen('menu');
+    }
+    setResult(null);
+    game()?.backToMenu();
+  });
+
+  /* club names shown on the result panel while in career/cup mode */
+  const resultLabels: [string, string] = (() => {
+    if (mode === 'career' && career && !seasonOver(career)) {
+      const fx = userFixture(career);
+      return [clubById(career.clubId).name, clubById(fx.opponent).name];
+    }
+    if (mode === 'cup' && cup) {
+      const opp = currentOpponent(cup);
+      return [clubById(cup.clubId).name, opp !== null ? clubById(opp).name : t.white];
+    }
+    return [t.blue, t.white];
+  })();
+
+  /* ------- numbered main menu ------- */
+  const menuItems: MenuItem[] = [
+    {
+      num: '01',
+      title: t.mPlay,
+      sub: t.mPlaySub,
+      onClick: () => {
+        setMode('quick');
+        beginMatch();
+      },
+    },
+    {
+      num: '02',
+      title: t.mCareer,
+      sub:
+        career && !seasonOver(career)
+          ? `${t.seasonLbl} · ${t.matchday} ${Math.min(career.matchday, MATCHDAYS)}/${MATCHDAYS}`
+          : t.mCareerSub,
+      onClick: () => setScreen('career'),
+    },
+    {
+      num: '03',
+      title: t.mCup,
+      sub: cup ? `${t.newCupRun} · ${clubById(cup.clubId).code}` : t.mCupSub,
+      onClick: () => setScreen('cup'),
+    },
+    { num: '04', title: t.mClubs, sub: t.mClubsSub, onClick: () => setScreen('clubs') },
+    { num: '05', title: t.mPlayers, sub: t.mPlayersSub, onClick: () => setScreen('players') },
+    { num: '06', title: t.mSettings, sub: t.mSettingsSub, onClick: () => setScreen('settings') },
+  ];
 
   const inMatch = screen === 'playing';
   const controlsLive = phase === 'play' || phase === 'kickoff';
@@ -1131,12 +1298,12 @@ export default function App() {
             >
               {result.win === 'win' ? t.win : result.win === 'loss' ? t.lose : t.draw}
             </div>
-            <div className="flex items-center gap-3 mt-4">
-              <span className="font-display text-[15px]" style={{ color: '#5db2ff' }}>{t.blue}</span>
+            <div className="flex items-center gap-3 mt-4 text-center">
+              <span className="font-display text-[12px] md:text-[14px] max-w-[110px]" style={{ color: '#5db2ff' }}>{resultLabels[0]}</span>
               <span className="score-num text-4xl text-white">{result.score[0]}</span>
               <span className="text-xl" style={{ color: '#5b7396' }}>—</span>
               <span className="score-num text-4xl text-white">{result.score[1]}</span>
-              <span className="font-display text-[15px]" style={{ color: '#ffb3d1' }}>{t.white}</span>
+              <span className="font-display text-[12px] md:text-[14px] max-w-[110px]" style={{ color: '#ffb3d1' }}>{resultLabels[1]}</span>
             </div>
             <div
               className="w-full mt-5 rounded-xl overflow-hidden"
@@ -1154,10 +1321,16 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-3 mt-6 w-full max-w-[300px]">
-              <button className="hud-btn flex-1 py-3.5 text-sm text-white" style={{ background: 'radial-gradient(circle at 30% 25%, #4da3ff, #1b5fd6 65%, #123e8c)', border: '2px solid rgba(190,225,255,0.8)' }} onClick={play}>
-                {t.playAgain}
-              </button>
+            <div className="flex gap-3 mt-6 w-full max-w-[320px]">
+              {mode === 'quick' ? (
+                <button className="hud-btn flex-1 py-3.5 text-sm text-white" style={{ background: 'radial-gradient(circle at 30% 25%, #4da3ff, #1b5fd6 65%, #123e8c)', border: '2px solid rgba(190,225,255,0.8)' }} onClick={play}>
+                  {t.playAgain}
+                </button>
+              ) : (
+                <button className="hud-btn flex-1 py-3.5 text-sm" style={{ background: 'linear-gradient(180deg, #54e0f0, #1899b8 70%, #0d6e88)', color: '#04222b', border: '1px solid rgba(210,250,255,0.75)' }} onClick={continueAfterResult}>
+                  {t.continueBtn}
+                </button>
+              )}
               <button className="hud-btn py-3.5 px-5 text-sm" style={{ color: '#bcd2f5', background: 'rgba(19,35,63,0.6)', border: '1px solid rgba(90,140,220,0.35)' }} onClick={toMenu}>
                 {t.menuBtn}
               </button>
@@ -1166,8 +1339,68 @@ export default function App() {
         </div>
       )}
 
+      {/* ==================== META SCREENS ==================== */}
+      {!inMatch && screen === 'career' && (
+        career && seasonOver(career) ? (
+          <SeasonEndScreen
+            t={t}
+            state={career}
+            onNewSeason={ui(() => setCareer(null))}
+            onBack={ui(() => setScreen('menu'))}
+          />
+        ) : (
+          <CareerScreen
+            t={t}
+            state={career}
+            onPlayMatch={career ? playCareerMatch : (careerPick as unknown as () => void)}
+            onReset={() => setCareer(null)}
+            onBack={ui(() => setScreen('menu'))}
+          />
+        )
+      )}
+      {!inMatch && screen === 'cup' && (
+        <CupScreen
+          t={t}
+          state={cup}
+          onPick={cupPick}
+          onPlayMatch={playCupMatch}
+          onNewCup={() => setCup(null)}
+          onBack={ui(() => setScreen('menu'))}
+        />
+      )}
+      {!inMatch && screen === 'clubs' && (
+        <ClubsScreen
+          t={t}
+          onOpen={(id) => {
+            setDetailClub(id);
+            setScreen('club');
+          }}
+          onBack={ui(() => setScreen('menu'))}
+        />
+      )}
+      {!inMatch && screen === 'club' && (
+        <ClubDetailScreen t={t} clubId={detailClub} onBack={ui(() => setScreen('clubs'))} />
+      )}
+      {!inMatch && screen === 'players' && (
+        <PlayersScreen t={t} onBack={ui(() => setScreen('menu'))} />
+      )}
+      {!inMatch && screen === 'settings' && (
+        <SettingsScreen
+          t={t}
+          vols={vols}
+          setVols={setVols}
+          muted={muted}
+          setMuted={setMuted}
+          lang={lang}
+          setLang={setLang}
+          duration={duration}
+          setDuration={setDuration}
+          onBack={ui(() => setScreen('menu'))}
+        />
+      )}
+
       {/* ==================== MENU ==================== */}
-      {!inMatch && (
+      {!inMatch && screen === 'menu' && (
         <div className="absolute inset-0 z-20">
           {/* readable gradient over the live demo */}
           <div
@@ -1212,20 +1445,16 @@ export default function App() {
               <span style={{ color: '#ffd23f' }}> {t.subtitleB}</span>
             </p>
 
-            <div className="rise-in mt-6" style={{ animationDelay: '0.15s' }}>
-              <div className="pulse-ring rounded-full w-fit">
-                <button
-                  className="hud-btn play-btn px-12 py-4 text-xl text-white"
-                  style={{
-                    background: 'radial-gradient(circle at 30% 25%, #4da3ff, #1b5fd6 65%, #123e8c)',
-                    border: '2px solid rgba(190,225,255,0.85)',
-                    boxShadow: '0 10px 30px rgba(27,95,214,0.5), inset 0 -8px 14px rgba(10,30,80,0.5)',
-                  }}
-                  onClick={play}
-                >
-                  {t.play}
-                </button>
-              </div>
+            <div className="rise-in mt-6 w-full max-w-[540px]" style={{ animationDelay: '0.15s' }}>
+              <MainMenuList
+                items={menuItems}
+                notes={
+                  <>
+                    <div>{t.guide1}</div>
+                    <div className="mt-1">{t.guide2}</div>
+                  </>
+                }
+              />
             </div>
 
             {/* secondary menu row */}
@@ -1262,18 +1491,6 @@ export default function App() {
               </button>
             </div>
 
-            <div
-              className="rise-in mt-5 rounded-xl px-4 py-3 font-body text-[12px] leading-6"
-              style={{
-                animationDelay: '0.25s',
-                color: '#8fa8d0',
-                background: 'rgba(10,22,42,0.72)',
-                border: '1px solid rgba(90,140,220,0.3)',
-              }}
-            >
-              <div>{t.guide1}</div>
-              <div>{t.guide2}</div>
-            </div>
           </div>
 
           <div

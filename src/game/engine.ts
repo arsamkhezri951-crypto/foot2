@@ -119,7 +119,7 @@ export class Game implements GameView {
     this.demo = false;
     this.score = [0, 0];
     this.stats = { shots: 0, passes: 0, goalsBlue: 0, goalsWhite: 0, saves: 0 };
-    this.timeLeft = MATCH_LEN;
+    this.timeLeft = this.matchLen;
     this.lastSentTime = -1;
     this.particles = [];
     this.trail = [];
@@ -162,6 +162,11 @@ export class Game implements GameView {
     this.input.mx = clamp(x, -1, 1);
     this.input.my = clamp(y, -1, 1);
   }
+  /** match length used by the next startMatch() — seconds, clamped 30..600 */
+  setMatchDuration(sec: number) {
+    this.matchLen = Math.round(clamp(sec, 30, 600));
+  }
+  private matchLen = MATCH_LEN;
   pressShoot() {
     this.input.shoot = true;
   }
