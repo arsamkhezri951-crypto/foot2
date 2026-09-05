@@ -12,10 +12,13 @@ import {
   STR,
   loadLang,
   loadMuted,
+  loadVolumes,
   saveLang,
   saveMuted,
+  saveVolumes,
   type Dict,
   type Lang,
+  type StoredVolumes,
 } from './game/i18n';
 
 interface ResultT {
@@ -111,6 +114,30 @@ const IconPhone = ({ s = 16 }: { s?: number }) => (
     <path d="M5 4h4l1.8 4.4-2.2 1.7a13.6 13.6 0 0 0 5.3 5.3l1.7-2.2L20 15v4a2 2 0 0 1-2.2 2A16.8 16.8 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />
   </svg>
 );
+const IconMenuBars = ({ s = 18 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+    <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+  </svg>
+);
+const IconGear = ({ s = 18 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8" />
+  </svg>
+);
+const IconRestart = ({ s = 18 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+    <path d="M20 3v4.5h-4.5" />
+  </svg>
+);
+const IconHome = ({ s = 18 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M3.5 11 12 3.5 20.5 11" />
+    <path d="M5.5 9.8V20h13V9.8" />
+    <path d="M10 20v-5.5h4V20" />
+  </svg>
+);
 const IconRotate = ({ s = 44 }: { s?: number }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <rect x="7" y="3" width="10" height="18" rx="2.4" />
@@ -169,6 +196,9 @@ function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
       onPointerCancel={end}
       className="absolute z-20"
       style={{
+        /* the HUD layer above is pointer-events:none; re-enable here so the
+           joystick actually receives touches (this was the "dead blue button") */
+        pointerEvents: 'auto',
         left: 'calc(env(safe-area-inset-left, 0px) + max(12px, 2.5vw))',
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + max(12px, 2.5vh))',
         width: 'min(40vmin, 190px)',
@@ -483,7 +513,20 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
           <IconBall s={44} />
         </div>
         <div className="font-display text-xl mt-3" style={{ color: '#ffffff' }}>{t.aboutTitle}</div>
-        <div className="font-body font-bold text-[15px] mt-2" style={{ color: '#cfe0fa' }}>{t.aboutName}</div>
+
+        <div
+          className="font-display text-[13px] tracking-widest mt-3 px-3.5 py-1.5 rounded-full"
+          style={{ background: 'rgba(27,95,214,0.25)', color: '#7db8ff', border: '1px solid rgba(125,184,255,0.45)' }}
+        >
+          MAGIC FOOTBALL · 3D
+        </div>
+        <p className="font-body text-[13px] leading-6 mt-2.5 max-w-[420px]" style={{ color: '#9db4dc' }}>
+          {t.aboutDesc}
+        </p>
+
+        <div className="w-full my-4" style={{ borderBottom: '1px dashed rgba(90,140,220,0.3)' }} />
+
+        <div className="font-body font-bold text-[15px]" style={{ color: '#cfe0fa' }}>{t.aboutName}</div>
         <div className="font-body text-[13.5px] mt-1" style={{ color: '#9db4dc' }}>{t.aboutClass}</div>
 
         <div className="w-full my-4" style={{ borderBottom: '1px dashed rgba(90,140,220,0.3)' }} />
@@ -504,6 +547,203 @@ function AboutModal({ t, onClose }: { t: Dict; onClose: () => void }) {
           <IconPhone s={17} />
           <bdi dir="ltr">00971551544988</bdi>
         </a>
+        <div className="font-body text-[11px] mt-4" style={{ color: '#5b7396' }}>
+          {t.version}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ================= volume slider (wired to real gain nodes) ================= */
+function VolSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="py-2.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-body font-bold text-[13px]" style={{ color: '#cfe0fa' }}>
+          {label}
+        </span>
+        <span
+          className="score-num text-[12px] px-2 py-0.5 rounded-md"
+          style={{ background: '#13233f', color: '#ffd23f', border: '1px solid rgba(255,210,63,0.3)' }}
+        >
+          {Math.round(value * 100)}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={Math.round(value * 100)}
+        onChange={(e) => onChange(Number(e.target.value) / 100)}
+        className="vol-slider"
+        aria-label={label}
+      />
+    </div>
+  );
+}
+
+/* ================= settings modal ================= */
+function SettingsModal({
+  t,
+  vols,
+  setVols,
+  muted,
+  setMuted,
+  lang,
+  setLang,
+  onClose,
+}: {
+  t: Dict;
+  vols: StoredVolumes;
+  setVols: (v: StoredVolumes) => void;
+  muted: boolean;
+  setMuted: (m: boolean) => void;
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal title={t.settingsTitle} icon={<IconGear s={20} />} onClose={onClose} closeLabel={t.close}>
+      <VolSlider label={t.masterVol} value={vols.master} onChange={(v) => setVols({ ...vols, master: v })} />
+      <VolSlider label={t.musicVol} value={vols.music} onChange={(v) => setVols({ ...vols, music: v })} />
+      <VolSlider label={t.sfxVol} value={vols.sfx} onChange={(v) => setVols({ ...vols, sfx: v })} />
+
+      <div
+        className="flex items-center justify-between py-3.5 mt-1"
+        style={{ borderTop: '1px dashed rgba(90,140,220,0.22)' }}
+      >
+        <span className="font-body font-bold text-[13px]" style={{ color: '#cfe0fa' }}>
+          {t.muteAll}
+        </span>
+        <button
+          onClick={() => {
+            sfx.init();
+            sfx.click();
+            setMuted(!muted);
+          }}
+          aria-pressed={muted}
+          className="flex items-center rounded-full"
+          style={{
+            width: 58,
+            height: 30,
+            padding: 3,
+            cursor: 'pointer',
+            background: muted ? '#3a1620' : 'linear-gradient(180deg,#2f8f4f,#176b35)',
+            border: `1px solid ${muted ? 'rgba(255,120,120,0.5)' : 'rgba(160,255,190,0.5)'}`,
+            transition: 'background 0.15s ease',
+          }}
+        >
+          <span
+            className="rounded-full"
+            style={{
+              width: 22,
+              height: 22,
+              background: muted ? '#ff9a9a' : '#eafff2',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+              transform: `translateX(${muted ? 28 : 0}px)`,
+              transition: 'transform 0.16s ease',
+            }}
+          />
+        </button>
+      </div>
+
+      <div
+        className="flex items-center justify-between py-3"
+        style={{ borderTop: '1px dashed rgba(90,140,220,0.22)' }}
+      >
+        <span className="font-body font-bold text-[13px]" style={{ color: '#cfe0fa' }}>
+          {t.languageLabel}
+        </span>
+        <LangToggle lang={lang} setLang={setLang} t={t} />
+      </div>
+    </Modal>
+  );
+}
+
+/* ================= in-match menu ================= */
+function InGameMenuModal({
+  t,
+  onResume,
+  onRestart,
+  onSettings,
+  onHelp,
+  onAbout,
+  onMainMenu,
+  onClose,
+}: {
+  t: Dict;
+  onResume: () => void;
+  onRestart: () => void;
+  onSettings: () => void;
+  onHelp: () => void;
+  onAbout: () => void;
+  onMainMenu: () => void;
+  onClose: () => void;
+}) {
+  const Item = ({
+    icon,
+    label,
+    onClick,
+    tone,
+  }: {
+    icon: ReactNode;
+    label: string;
+    onClick: () => void;
+    tone?: 'green' | 'blue' | 'plain' | 'danger';
+  }) => (
+    <button
+      className="hud-btn flex-row justify-start gap-3 text-sm"
+      style={{
+        width: '100%',
+        minHeight: 50,
+        padding: '0 18px',
+        borderRadius: 14,
+        color:
+          tone === 'green' ? '#eafff2'
+          : tone === 'danger' ? '#ffd7d7'
+          : tone === 'blue' ? '#dcebff'
+          : '#bcd2f5',
+        background:
+          tone === 'green'
+            ? 'linear-gradient(180deg,#2f8f4f,#176b35)'
+            : tone === 'danger'
+              ? 'linear-gradient(180deg,#7a2436,#4c1522)'
+              : tone === 'blue'
+                ? 'linear-gradient(180deg,#1d3a6b,#122547)'
+                : 'rgba(19,35,63,0.6)',
+        border: `1px solid ${
+          tone === 'green'
+            ? 'rgba(160,255,190,0.5)'
+            : tone === 'danger'
+              ? 'rgba(255,140,140,0.4)'
+              : 'rgba(90,140,220,0.4)'
+        }`,
+      }}
+      onClick={onClick}
+    >
+      {icon}
+      <span className="font-body font-bold">{label}</span>
+    </button>
+  );
+
+  return (
+    <Modal title={t.inGameMenu} icon={<IconMenuBars s={20} />} onClose={onClose} closeLabel={t.close}>
+      <div className="flex flex-col gap-2.5 py-1">
+        <Item icon={<IconPlay s={18} />} label={t.resume} onClick={onResume} tone="green" />
+        <Item icon={<IconRestart s={18} />} label={t.restart} onClick={onRestart} tone="blue" />
+        <Item icon={<IconGear s={18} />} label={t.settingsTitle} onClick={onSettings} />
+        <Item icon={<IconHelp s={18} />} label={t.help} onClick={onHelp} />
+        <Item icon={<IconInfo s={18} />} label={t.about} onClick={onAbout} />
+        <Item icon={<IconHome s={18} />} label={t.mainMenu} onClick={onMainMenu} tone="danger" />
       </div>
     </Modal>
   );
@@ -616,11 +856,37 @@ export default function App() {
   const [result, setResult] = useState<ResultT | null>(null);
   const [lang, setLang] = useState<Lang>(() => loadLang());
   const [muted, setMuted] = useState<boolean>(() => loadMuted());
-  const [modal, setModal] = useState<null | 'help' | 'about'>(null);
+  const [modal, setModal] = useState<null | 'help' | 'about' | 'settings' | 'ingame'>(null);
   const portrait = usePortrait();
   const [rotateDismissed, setRotateDismissed] = useState(false);
+  const [vols, setVols] = useState<StoredVolumes>(() => loadVolumes());
+  const resumeAfterMenu = useRef(false);
 
   const t = STR[lang];
+
+  /* live-apply + persist volume settings (every slider is real) */
+  useEffect(() => {
+    sfx.setVolumes(vols);
+    saveVolumes(vols);
+  }, [vols]);
+
+  /* opening the in-match menu auto-pauses; closing resumes the match */
+  const openInGameMenu = () => {
+    sfx.init();
+    sfx.click();
+    const ph = gameRef.current?.phase;
+    resumeAfterMenu.current = ph === 'play' || ph === 'kickoff';
+    if (resumeAfterMenu.current) gameRef.current?.pauseToggle();
+    setModal('ingame');
+  };
+  const closeInGameMenu = () => {
+    sfx.init();
+    sfx.click();
+    if (resumeAfterMenu.current && gameRef.current?.phase === 'paused')
+      gameRef.current?.pauseToggle();
+    resumeAfterMenu.current = false;
+    setModal(null);
+  };
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -721,7 +987,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* pause / sound */}
+          {/* match menu / pause / sound */}
           <div
             className="absolute flex gap-2 pointer-events-auto"
             style={{
@@ -729,6 +995,19 @@ export default function App() {
               right: 'calc(env(safe-area-inset-right, 0px) + max(10px, 1.8vw))',
             }}
           >
+            <button
+              className="hud-btn"
+              style={{
+                width: 44, height: 44, color: '#ffd9a0',
+                background: 'linear-gradient(180deg, #3d2f14, #241b0a)',
+                border: '1px solid rgba(255,210,120,0.5)',
+              }}
+              onClick={openInGameMenu}
+              aria-label={t.ariaMenu}
+              title={t.inGameMenu}
+            >
+              <IconMenuBars />
+            </button>
             <button
               className="hud-btn"
               style={{
@@ -807,7 +1086,7 @@ export default function App() {
       )}
 
       {/* ==================== PAUSE ==================== */}
-      {inMatch && phase === 'paused' && (
+      {inMatch && phase === 'paused' && !modal && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-3" style={{ background: 'rgba(4,9,18,0.72)' }}>
           <div
             className="rise-in rounded-2xl px-8 py-7 flex flex-col items-center gap-4 w-[min(92vw,360px)]"
@@ -1012,8 +1291,71 @@ export default function App() {
       )}
 
       {/* ==================== MODALS ==================== */}
-      {modal === 'help' && <HelpModal t={t} onClose={ui(() => setModal(null))} />}
-      {modal === 'about' && <AboutModal t={t} onClose={ui(() => setModal(null))} />}
+      {modal === 'help' && (
+        <HelpModal
+          t={t}
+          onClose={() => {
+            sfx.click();
+            setModal(inMatch ? 'ingame' : null);
+          }}
+        />
+      )}
+      {modal === 'about' && (
+        <AboutModal
+          t={t}
+          onClose={() => {
+            sfx.click();
+            setModal(inMatch ? 'ingame' : null);
+          }}
+        />
+      )}
+      {modal === 'settings' && (
+        <SettingsModal
+          t={t}
+          vols={vols}
+          setVols={setVols}
+          muted={muted}
+          setMuted={setMuted}
+          lang={lang}
+          setLang={setLang}
+          onClose={() => {
+            sfx.click();
+            setModal(inMatch ? 'ingame' : null);
+          }}
+        />
+      )}
+      {modal === 'ingame' && (
+        <InGameMenuModal
+          t={t}
+          onResume={closeInGameMenu}
+          onRestart={() => {
+            sfx.click();
+            resumeAfterMenu.current = false;
+            setResult(null);
+            setGoalFx(null);
+            setModal(null);
+            game()?.startMatch();
+          }}
+          onSettings={() => {
+            sfx.click();
+            setModal('settings');
+          }}
+          onHelp={() => {
+            sfx.click();
+            setModal('help');
+          }}
+          onAbout={() => {
+            sfx.click();
+            setModal('about');
+          }}
+          onMainMenu={() => {
+            resumeAfterMenu.current = false;
+            setModal(null);
+            toMenu();
+          }}
+          onClose={closeInGameMenu}
+        />
+      )}
 
       {/* ==================== ROTATE HINT ==================== */}
       {showRotate && <RotateOverlay t={t} onDismiss={() => setRotateDismissed(true)} />}

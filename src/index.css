@@ -53,6 +53,52 @@ button {
   transform: scale(0.9);
   filter: brightness(1.25);
 }
+/* in-match menu items lay out horizontally */
+.hud-btn.flex-row {
+  flex-direction: row;
+}
+
+/* ---------------- settings sliders ---------------- */
+.vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 26px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.vol-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #10203c, #16294a);
+  border: 1px solid rgba(90, 140, 220, 0.4);
+}
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #7db8ff, #2b6fe8 62%, #173f8f);
+  border: 2px solid rgba(234, 246, 255, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+.vol-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 6px;
+  background: #16294a;
+  border: 1px solid rgba(90, 140, 220, 0.4);
+}
+.vol-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #7db8ff, #2b6fe8 62%, #173f8f);
+  border: 2px solid rgba(234, 246, 255, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
 
 @keyframes goal-pop {
   0% {

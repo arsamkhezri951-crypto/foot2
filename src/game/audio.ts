@@ -2,13 +2,22 @@
 
 type Ctx = AudioContext;
 
+export interface VolumeSettings {
+  master: number; // 0..1
+  music: number; // 0..1  (crowd ambience / pads)
+  sfx: number; // 0..1  (kicks, whistles, ui)
+}
+
 class Sfx {
   private ac: Ctx | null = null;
   private master: GainNode | null = null;
+  private musicBus: GainNode | null = null;
+  private sfxBus: GainNode | null = null;
   private crowdSrc: AudioBufferSourceNode | null = null;
   private crowdGain: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   muted = false;
+  private vols: VolumeSettings = { master: 1, music: 1, sfx: 1 };
 
   init() {
     if (this.ac) {
@@ -22,8 +31,14 @@ class Sfx {
           .webkitAudioContext;
       this.ac = new AC();
       this.master = this.ac.createGain();
-      this.master.gain.value = 0.5;
+      this.master.gain.value = this.muted ? 0 : 0.55 * this.vols.master;
       this.master.connect(this.ac.destination);
+      this.musicBus = this.ac.createGain();
+      this.musicBus.gain.value = this.vols.music;
+      this.musicBus.connect(this.master);
+      this.sfxBus = this.ac.createGain();
+      this.sfxBus.gain.value = this.vols.sfx;
+      this.sfxBus.connect(this.master);
       // shared noise buffer
       const len = this.ac.sampleRate * 2;
       this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
@@ -37,15 +52,45 @@ class Sfx {
   setMuted(m: boolean) {
     this.muted = m;
     if (this.master && this.ac)
-      this.master.gain.setTargetAtTime(m ? 0 : 0.5, this.ac.currentTime, 0.05);
+      this.master.gain.setTargetAtTime(
+        m ? 0 : 0.55 * this.vols.master,
+        this.ac.currentTime,
+        0.05
+      );
+  }
+
+  /** Live volume control — every slider is wired to a real gain node. */
+  setVolumes(v: VolumeSettings) {
+    this.vols = {
+      master: Math.min(1, Math.max(0, v.master)),
+      music: Math.min(1, Math.max(0, v.music)),
+      sfx: Math.min(1, Math.max(0, v.sfx)),
+    };
+    if (this.ac) {
+      const now = this.ac.currentTime;
+      if (this.master)
+        this.master.gain.setTargetAtTime(
+          this.muted ? 0 : 0.55 * this.vols.master,
+          now,
+          0.04
+        );
+      if (this.musicBus)
+        this.musicBus.gain.setTargetAtTime(this.vols.music, now, 0.04);
+      if (this.sfxBus)
+        this.sfxBus.gain.setTargetAtTime(this.vols.sfx, now, 0.04);
+    }
+  }
+
+  getVolumes(): VolumeSettings {
+    return { ...this.vols };
   }
 
   private env(gain: number, dur: number): GainNode | null {
-    if (!this.ac || !this.master) return null;
+    if (!this.ac || !this.sfxBus) return null;
     const g = this.ac.createGain();
     g.gain.setValueAtTime(gain, this.ac.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, this.ac.currentTime + dur);
-    g.connect(this.master);
+    g.connect(this.sfxBus);
     return g;
   }
 
@@ -181,7 +226,7 @@ class Sfx {
     lg.connect(g.gain);
     src.connect(f);
     f.connect(g);
-    g.connect(this.master!);
+    g.connect(this.musicBus ?? this.master!);
     src.start();
     lfo.start();
     this.crowdSrc = src;

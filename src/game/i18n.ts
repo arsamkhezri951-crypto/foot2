@@ -66,9 +66,20 @@ export interface Dict {
   helpMenus: HelpItem[];
   /* about */
   aboutTitle: string;
+  aboutDesc: string;
   aboutName: string;
   aboutClass: string;
   aboutContact: string;
+  version: string;
+  /* in-game menu & settings */
+  settingsTitle: string;
+  masterVol: string;
+  musicVol: string;
+  sfxVol: string;
+  muteAll: string;
+  languageLabel: string;
+  inGameMenu: string;
+  ariaMenu: string;
   /* rotate */
   rotateTitle: string;
   rotateText: string;
@@ -175,6 +186,14 @@ export const STR: Record<Lang, Dict> = {
         title: 'Score & Timer',
         body: 'The top scoreboard shows BLUE — WHITE and the remaining time. After full time, the result and your stats (goals, shots, passes, saves) appear.',
       },
+      {
+        title: 'Desktop keys',
+        body: 'WASD / arrow keys move · SPACE shoot (hold longer = stronger shot) · X pass · C cross · V or SHIFT dribble sprint · P or ESC pause.',
+      },
+      {
+        title: 'Touch controls',
+        body: 'The left joystick moves your player. SHOOT (hold for power), PASS, CROSS and DRIBBLE sit at the bottom-right. The menu button at the top-right opens Resume, Restart, Settings, Help and About during the match.',
+      },
     ],
     helpMenus: [
       { title: 'PLAY', body: 'Starts a new match immediately.' },
@@ -204,9 +223,20 @@ export const STR: Record<Lang, Dict> = {
       },
     ],
     aboutTitle: 'About the Developer',
+    aboutDesc:
+      'MAGIC FOOTBALL is a fast, easy, fun 3D arcade football game — quick 3-minute matches under the floodlights, one-touch passing, charged shots and a living night stadium full of fans.',
     aboutName: 'Arsam, 11 years old, from Dubai',
     aboutClass: "Student in Dr. Aghaei's class",
     aboutContact: 'Teacher Contact:',
+    version: 'Version 1.2.0',
+    settingsTitle: 'Settings',
+    masterVol: 'Master Volume',
+    musicVol: 'Crowd & Music',
+    sfxVol: 'Sound Effects',
+    muteAll: 'Mute All',
+    languageLabel: 'Language',
+    inGameMenu: 'Match Menu',
+    ariaMenu: 'Open match menu',
     rotateTitle: 'Rotate your phone',
     rotateText:
       'MAGIC FOOTBALL plays best in landscape — turn your phone sideways for the full 3D stadium view.',
@@ -312,6 +342,14 @@ export const STR: Record<Lang, Dict> = {
         title: 'امتیاز و زمان',
         body: 'جدول بالای صفحه نتیجه و زمان باقی‌مانده را نشان می‌دهد. بعد از پایان بازی، نتیجه و آمار شما (گل، شوت، پاس، مهار) نمایش داده می‌شود.',
       },
+      {
+        title: 'کلیدهای کیبورد',
+        body: 'حرکت با WASD یا کلیدهای جهت‌نما · شوت با SPACE (نگه‌داشتنِ بیشتر = شوت قوی‌تر) · پاس با X · سانتر با C · دریبل و سرعت با V یا SHIFT · توقف با P یا ESC.',
+      },
+      {
+        title: 'کنترل‌های لمسی',
+        body: 'جوی‌استیک سمت چپ بازیکن شما را حرکت می‌دهد. دکمه‌های شوت (نگه‌داشتن برای قدرت)، پاس، سانتر و دریبل پایین راست قرار دارند. دکمه منو در بالا راست، در طول مسابقه گزینه‌های ادامه، شروع دوباره، تنظیمات، راهنما و درباره سازنده را باز می‌کند.',
+      },
     ],
     helpMenus: [
       { title: 'شروع بازی (PLAY)', body: 'بلافاصله یک مسابقه جدید را شروع می‌کند.' },
@@ -341,9 +379,20 @@ export const STR: Record<Lang, Dict> = {
       },
     ],
     aboutTitle: 'درباره سازنده',
+    aboutDesc:
+      'مجیک فوتبال یک بازی فوتبال آرکید سه‌بعدی، سریع و سرگرم‌کننده است — مسابقه‌های ۳ دقیقه‌ای زیر نور پروژکتورها، پاس‌های تک‌ضربه‌ای، شوت‌های قدرتی و ورزشگاه شبانه‌ای پر از تماشاگر.',
     aboutName: 'آرسام، 11 ساله از دبی',
     aboutClass: 'از هنرجویان کلاس خانم دکتر آقایی',
     aboutContact: 'شماره استاد:',
+    version: 'نسخه 1.2.0',
+    settingsTitle: 'تنظیمات',
+    masterVol: 'بلندی صدای اصلی',
+    musicVol: 'صدای تماشاگران و موسیقی',
+    sfxVol: 'افکت‌های صوتی',
+    muteAll: 'قطع کامل صدا',
+    languageLabel: 'زبان',
+    inGameMenu: 'منوی مسابقه',
+    ariaMenu: 'بازکردن منوی مسابقه',
     rotateTitle: 'گوشی را بچرخانید',
     rotateText:
       'مجیک فوتبال در حالت افقی بهترین تجربه را دارد — برای دیدن نمای کامل ورزشگاه سه‌بعدی، گوشی را بچرخانید.',
@@ -386,6 +435,38 @@ export function loadMuted(): boolean {
 export function saveMuted(m: boolean) {
   try {
     localStorage.setItem(MUTE_KEY, m ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+const VOL_KEY = 'magic-football:volumes';
+
+export interface StoredVolumes {
+  master: number;
+  music: number;
+  sfx: number;
+}
+
+/** Invalid / corrupted stored values fall back to full volume — never crash. */
+export function loadVolumes(): StoredVolumes {
+  const num = (v: unknown) =>
+    typeof v === 'number' && isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  try {
+    const s = localStorage.getItem(VOL_KEY);
+    if (s) {
+      const o = JSON.parse(s) as Partial<StoredVolumes>;
+      return { master: num(o.master), music: num(o.music), sfx: num(o.sfx) };
+    }
+  } catch {
+    /* corrupted data → defaults */
+  }
+  return { master: 1, music: 1, sfx: 1 };
+}
+
+export function saveVolumes(v: StoredVolumes) {
+  try {
+    localStorage.setItem(VOL_KEY, JSON.stringify(v));
   } catch {
     /* ignore */
   }
