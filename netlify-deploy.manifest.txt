@@ -1,0 +1,6 @@
+netlify-deploy.zip — 5 files, 74.5 KB (deflate, entries at archive root)
+  _redirects
+  assets/index-BAaUNCua.js
+  assets/index-BL-rdjph.css
+  favicon.svg
+  index.html

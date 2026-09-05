@@ -1,0 +1,243 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bungee", "Rubik", sans-serif;
+  --font-body: "Rubik", sans-serif;
+  --color-pitch: #2e9e4f;
+  --color-kitblue: #1f6ef2;
+  --color-kitpink: #ff5fa2;
+  --color-night: #07101f;
+  --color-panel: #0c1a30;
+}
+
+html,
+body {
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+a,
+button {
+  touch-action: manipulation; /* no double-tap zoom on tappable UI */
+}
+
+/* ---------- HUD helpers ---------- */
+.hud-btn {
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+  will-change: transform;
+}
+.hud-btn:active,
+.hud-btn.pressed {
+  transform: scale(0.9);
+  filter: brightness(1.25);
+}
+
+@keyframes goal-pop {
+  0% {
+    transform: scale(0.2) rotate(-6deg);
+    opacity: 0;
+  }
+  18% {
+    transform: scale(1.18) rotate(2deg);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1) rotate(0deg);
+  }
+  78% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+.goal-banner {
+  animation: goal-pop 2.5s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes flash-fade {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.goal-flash {
+  animation: flash-fade 0.7s ease-out both;
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(26px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.rise-in {
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.rise-in-slow {
+  animation: rise-in 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+@keyframes title-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(1.5deg);
+  }
+}
+.title-bob {
+  animation: title-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes ball-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ball-spin {
+  animation: ball-spin 2.6s linear infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(64, 160, 255, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 16px rgba(64, 160, 255, 0);
+  }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s ease-out infinite;
+}
+
+/* ---------------- mobile hardening ---------------- */
+:root {
+  /* action cluster shrinks on short landscape screens (phones) */
+  --ctrl-scale: clamp(0.6, calc(100vh / 780), 1);
+}
+
+/* ---------------- Persian (RTL) typography ---------------- */
+html[dir="rtl"] {
+  --font-display: "Vazirmatn", "Rubik", sans-serif;
+  --font-body: "Vazirmatn", "Rubik", sans-serif;
+}
+html[dir="rtl"] .hud-btn {
+  letter-spacing: 0;
+  font-weight: 800;
+}
+/* the brand logo always keeps the Latin display face */
+.font-logo {
+  font-family: "Bungee", "Vazirmatn", sans-serif !important;
+}
+.score-num {
+  font-family: "Bungee", "Vazirmatn", sans-serif;
+}
+
+/* ---------------- menu micro-interactions ---------------- */
+.menu-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    transform 0.13s ease,
+    border-color 0.13s ease,
+    box-shadow 0.13s ease,
+    color 0.13s ease,
+    background 0.13s ease;
+}
+.menu-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(125, 184, 255, 0.8) !important;
+  box-shadow: 0 10px 26px rgba(24, 68, 150, 0.4);
+}
+.play-btn {
+  transition:
+    transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1.4),
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+.play-btn:hover {
+  transform: scale(1.055);
+  filter: brightness(1.12);
+}
+
+/* ---------------- modals ---------------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 0.22s ease-out both;
+}
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #2c4570 transparent;
+}
+.panel-scroll::-webkit-scrollbar {
+  width: 9px;
+}
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: #2c4570;
+  border-radius: 8px;
+  border: 2px solid #0a1526;
+}
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------- rotate hint ---------------- */
+@keyframes phone-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-78deg);
+  }
+}
+.phone-tilt {
+  display: inline-block;
+  animation: phone-tilt 2.4s ease-in-out infinite;
+}
